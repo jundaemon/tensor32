@@ -146,7 +146,6 @@ class Tensor(Container):
         )
 
     def T(self) -> Tensor:
-        assert len(self.data.shape) >= 2
         return Tensor(
             # using copy because .T only creates a view
             data=self.data.T.copy(),
@@ -155,7 +154,6 @@ class Tensor(Container):
         )
 
     def mT(self) -> Tensor:
-        assert len(self.data.shape) >= 2
         return Tensor(
             # using copy because swapaxes only creates a view
             data=np.swapaxes(self.data, -1, -2).copy(),
@@ -164,9 +162,6 @@ class Tensor(Container):
         )
 
     def __matmul__(self, matrix_2: Container | Tensor) -> Tensor:
-        assert len(self.data.shape) >= 2
-        assert len(matrix_2.data.shape) >= 2
-
         return Tensor(
             data=self.data @ matrix_2.data,
             operands=(self, matrix_2),
@@ -174,9 +169,6 @@ class Tensor(Container):
         )
 
     def __rmatmul__(self, matrix_1: Container) -> Tensor:
-        assert len(matrix_1.data.shape) >= 2
-        assert len(self.data.shape) >= 2
-
         return Tensor(
             data=matrix_1.data @ self.data,
             operands=(matrix_1, self),
@@ -273,3 +265,8 @@ class Tensor(Container):
                         op_2.grad += unbroadcast(
                             np.swapaxes(op_1.data, -1, -2) @ elem.grad, op_2.grad.shape
                         )
+
+
+if __name__ == "__main__":
+    arr = np.array([1, 2, 3])
+    print(arr.mT)
