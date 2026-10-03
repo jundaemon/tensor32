@@ -265,8 +265,3 @@ class Tensor(Container):
                         op_2.grad += unbroadcast(
                             np.swapaxes(op_1.data, -1, -2) @ elem.grad, op_2.grad.shape
                         )
-
-
-if __name__ == "__main__":
-    arr = np.array([1, 2, 3])
-    print(arr.mT)
