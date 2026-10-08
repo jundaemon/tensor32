@@ -161,7 +161,7 @@ def test_complex_graph() -> None:
     t_a, t_b, t_c = Tensor(np_a), Tensor(np_b), Tensor(np_c)
     t_d = t_a @ t_b
     t_e = t_d + t_c
-    t_f = t_e * t_a
+    t_f = t_e * t_a  # reusing tensor to test accumulation
     t_out = t_f.T()
     t_out.backward()
 
