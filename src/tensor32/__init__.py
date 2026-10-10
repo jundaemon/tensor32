@@ -14,6 +14,9 @@ class Operation(Enum):
     T = auto()
     MT = auto()
     MATMUL = auto()
+    RELU = auto()
+    TANH = auto()
+    SIGMOID = auto()
 
 
 # if broadcasting was done to satisfy an operation,
@@ -145,6 +148,7 @@ class Tensor(Container):
             operation=Operation.POW,
         )
 
+    @property
     def T(self) -> Tensor:
         return Tensor(
             # using copy because .T only creates a view
@@ -153,6 +157,7 @@ class Tensor(Container):
             operation=Operation.T,
         )
 
+    @property
     def mT(self) -> Tensor:
         return Tensor(
             # using copy because swapaxes only creates a view
@@ -173,6 +178,32 @@ class Tensor(Container):
             data=matrix_1.data @ self.data,
             operands=(matrix_1, self),
             operation=Operation.MATMUL,
+        )
+
+    def relu(self) -> Tensor:
+        return Tensor(
+            data=np.maximum(0, self.data, dtype=np.float32),
+            operands=(self,),
+            operation=Operation.RELU,
+        )
+
+    def tanh(self) -> Tensor:
+        return Tensor(
+            data=np.tanh(self.data, dtype=np.float32),
+            operands=(self,),
+            operation=Operation.TANH,
+        )
+
+    def sigmoid(self) -> Tensor:
+        # numerically stable sigmoid, prevents division by inf and overflow
+        return Tensor(
+            data=np.where(
+                self.data >= 0,
+                1 / (1 + np.exp(-self.data)),
+                np.exp(self.data) / (1 + np.exp(self.data)),
+            ).astype(np.float32),
+            operands=(self,),
+            operation=Operation.SIGMOID,
         )
 
     # non-recursive topological sort
@@ -265,3 +296,15 @@ class Tensor(Container):
                         op_2.grad += unbroadcast(
                             np.swapaxes(op_1.data, -1, -2) @ elem.grad, op_2.grad.shape
                         )
+                case Operation.RELU:
+                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op.grad += elem.grad * (op.data > 0).astype(np.float32)
+                case Operation.TANH:
+                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op.grad += elem.grad * (1 - elem.data**2)
+                case Operation.SIGMOID:
+                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op.grad += elem.grad * elem.data * (1 - elem.data)
+
+    def zero_grad(self) -> None:
+        self.grad = np.zeros_like(self.data, dtype=np.float32)

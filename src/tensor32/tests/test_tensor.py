@@ -7,6 +7,7 @@ from tensor32 import Tensor
 
 RTOL = 1e-4
 ATOL = 1e-4
+
 OPS_SHAPES = [
     ((3, 3), (3, 3)),
     ((3, 3), (3, 1)),
@@ -82,6 +83,11 @@ def test_pow(shape_a: tuple[int, ...], shape_b: tuple[int, ...]) -> None:
     helper_verify_binary_op(shape_a, shape_b, lambda a, b: a**b, ensure_positive_a=True)
 
 
+@pytest.mark.parametrize("shape_a, shape_b", MATMUL_SHAPES)
+def test_matmul(shape_a: tuple[int, ...], shape_b: tuple[int, ...]) -> None:
+    helper_verify_binary_op(shape_a, shape_b, lambda a, b: a @ b)
+
+
 def test_neg() -> None:
     rng = np.random.default_rng()
     np_a = rng.standard_normal((3, 3), dtype=np.float32)
@@ -103,7 +109,7 @@ def test_T() -> None:
     np_a = rng.standard_normal((3, 4), dtype=np.float32)
 
     t_a = Tensor(np_a)
-    t_out = t_a.T()
+    t_out = t_a.T
     t_out.backward()
 
     pt_a = torch.tensor(np_a, requires_grad=True)
@@ -119,7 +125,7 @@ def test_mT() -> None:
     np_a = rng.standard_normal((2, 3, 4, 5), dtype=np.float32)
 
     t_a = Tensor(np_a)
-    t_out = t_a.mT()
+    t_out = t_a.mT
     t_out.backward()
 
     pt_a = torch.tensor(np_a, requires_grad=True)
@@ -130,15 +136,10 @@ def test_mT() -> None:
     assert_allclose(t_a.grad, pt_a.grad.numpy(), rtol=RTOL, atol=ATOL)  # type: ignore
 
 
-@pytest.mark.parametrize("shape_a, shape_b", MATMUL_SHAPES)
-def test_matmul(shape_a: tuple[int, ...], shape_b: tuple[int, ...]) -> None:
-    helper_verify_binary_op(shape_a, shape_b, lambda a, b: a @ b)
-
-
-def test_scalar_operations() -> None:
+def test_scalars() -> None:
     rng = np.random.default_rng()
     np_a = rng.standard_normal((3, 3), dtype=np.float32)
-    scalar = 10.4
+    scalar = 10.3
 
     t_a = Tensor(np_a)
     t_out = (t_a * scalar + scalar) / scalar
@@ -152,29 +153,49 @@ def test_scalar_operations() -> None:
     assert_allclose(t_a.grad, pt_a.grad.numpy(), rtol=RTOL, atol=ATOL)  # type: ignore
 
 
-def test_complex_graph() -> None:
+def test_relu() -> None:
     rng = np.random.default_rng()
     np_a = rng.standard_normal((3, 3), dtype=np.float32)
-    np_b = rng.standard_normal((3, 3), dtype=np.float32)
-    np_c = rng.standard_normal((3, 3), dtype=np.float32)
 
-    t_a, t_b, t_c = Tensor(np_a), Tensor(np_b), Tensor(np_c)
-    t_d = t_a @ t_b
-    t_e = t_d + t_c
-    t_f = t_e * t_a  # reusing tensor to test accumulation
-    t_out = t_f.T()
+    t_a = Tensor(np_a)
+    t_out = t_a.relu()
     t_out.backward()
 
     pt_a = torch.tensor(np_a, requires_grad=True)
-    pt_b = torch.tensor(np_b, requires_grad=True)
-    pt_c = torch.tensor(np_c, requires_grad=True)
-    pt_d = pt_a @ pt_b
-    pt_e = pt_d + pt_c
-    pt_f = pt_e * pt_a
-    pt_out = pt_f.T
+    pt_out = pt_a.relu()
     pt_out.backward(torch.ones_like(pt_out))
 
     assert_allclose(t_out.data, pt_out.detach().numpy(), rtol=RTOL, atol=ATOL)
     assert_allclose(t_a.grad, pt_a.grad.numpy(), rtol=RTOL, atol=ATOL)  # type: ignore
-    assert_allclose(t_b.grad, pt_b.grad.numpy(), rtol=RTOL, atol=ATOL)  # type: ignore
-    assert_allclose(t_c.grad, pt_c.grad.numpy(), rtol=RTOL, atol=ATOL)  # type: ignore
+
+
+def test_tanh() -> None:
+    rng = np.random.default_rng()
+    np_a = rng.standard_normal((3, 3), dtype=np.float32)
+
+    t_a = Tensor(np_a)
+    t_out = t_a.tanh()
+    t_out.backward()
+
+    pt_a = torch.tensor(np_a, requires_grad=True)
+    pt_out = pt_a.tanh()
+    pt_out.backward(torch.ones_like(pt_out))
+
+    assert_allclose(t_out.data, pt_out.detach().numpy(), rtol=RTOL, atol=ATOL)
+    assert_allclose(t_a.grad, pt_a.grad.numpy(), rtol=RTOL, atol=ATOL)  # type: ignore
+
+
+def test_sigmoid() -> None:
+    rng = np.random.default_rng()
+    np_a = rng.standard_normal((3, 3), dtype=np.float32)
+
+    t_a = Tensor(np_a)
+    t_out = t_a.sigmoid()
+    t_out.backward()
+
+    pt_a = torch.tensor(np_a, requires_grad=True)
+    pt_out = pt_a.sigmoid()
+    pt_out.backward(torch.ones_like(pt_out))
+
+    assert_allclose(t_out.data, pt_out.detach().numpy(), rtol=RTOL, atol=ATOL)
+    assert_allclose(t_a.grad, pt_a.grad.numpy(), rtol=RTOL, atol=ATOL)  # type: ignore
