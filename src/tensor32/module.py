@@ -1,7 +1,9 @@
 from abc import abstractmethod
+from collections import OrderedDict
 from typing import override
 
 import numpy as np
+import torch
 
 from tensor32 import Container, Tensor
 from tensor32.config import Config
@@ -15,13 +17,16 @@ class Module:
     def __call__(self, X: Container | Tensor) -> Container | Tensor: ...
 
 
+class Stateless: ...
+
+
 class Linear(Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         rng = np.random.default_rng()
 
         # bound for Kaiming uniform initialization in fan in mode
         w_bound = np.sqrt(6 / in_channels)
-        self.weights = Tensor(
+        self.weight = Tensor(
             data=rng.uniform(
                 low=-w_bound, high=w_bound, size=(out_channels, in_channels)
             ).astype(np.float32)
@@ -29,7 +34,7 @@ class Linear(Module):
 
         # bound for scaled LeCun uniform initialization
         b_bound = np.sqrt(1 / in_channels)
-        self.biases = Tensor(
+        self.bias = Tensor(
             data=rng.uniform(low=-b_bound, high=b_bound, size=out_channels).astype(
                 np.float32
             )
@@ -38,16 +43,16 @@ class Linear(Module):
     @override
     def forward(self, X: Container | Tensor) -> Container | Tensor:
         if Config.grad_enabled:
-            return X @ self.weights.T + self.biases
+            return X @ self.weight.T + self.bias
         else:
-            return Container(data=X.data @ self.weights.data.T + self.biases.data)
+            return Container(data=X.data @ self.weight.data.T + self.bias.data)
 
     @override
     def __call__(self, X: Container | Tensor) -> Container | Tensor:
         return self.forward(X)
 
 
-class ReLU(Module):
+class ReLU(Module, Stateless):
     @override
     def forward(self, X: Container | Tensor) -> Container | Tensor:
         if Config.grad_enabled:
@@ -61,7 +66,7 @@ class ReLU(Module):
         return self.forward(X)
 
 
-class Tanh(Module):
+class Tanh(Module, Stateless):
     @override
     def forward(self, X: Container | Tensor) -> Container | Tensor:
         if Config.grad_enabled:
@@ -75,7 +80,7 @@ class Tanh(Module):
         return self.forward(X)
 
 
-class Sigmoid(Module):
+class Sigmoid(Module, Stateless):
     @override
     def forward(self, X: Container | Tensor) -> Container | Tensor:
         if Config.grad_enabled:
@@ -94,3 +99,31 @@ class Sigmoid(Module):
     @override
     def __call__(self, X: Container | Tensor) -> Container | Tensor:
         return self.forward(X)
+
+
+class Sequential(Module):
+    def __init__(self, *args: Module) -> None:
+        self.modules = args
+
+    @override
+    def forward(self, X: Container | Tensor) -> Container | Tensor:
+        state = X
+        for module in self.modules:
+            state = module(state)
+
+        return state
+
+    @override
+    def __call__(self, X: Container | Tensor) -> Container | Tensor:
+        return self.forward(X)
+
+    def state_dict(self) -> OrderedDict[str, torch.Tensor]:
+        state = OrderedDict()
+        for i, module in enumerate(self.modules):
+            if isinstance(module, Stateless):
+                continue
+
+            for key, val in vars(module).items():
+                state[f"{i}.{key}"] = torch.from_numpy(val.data)
+
+        return state
