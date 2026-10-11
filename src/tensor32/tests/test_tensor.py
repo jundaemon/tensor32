@@ -199,3 +199,19 @@ def test_sigmoid() -> None:
 
     assert_allclose(t_out.data, pt_out.detach().numpy(), rtol=RTOL, atol=ATOL)
     assert_allclose(t_a.grad, pt_a.grad.numpy(), rtol=RTOL, atol=ATOL)  # type: ignore
+
+
+def test_mean() -> None:
+    rng = np.random.default_rng()
+    np_a = rng.standard_normal((3, 3), dtype=np.float32)
+
+    t_a = Tensor(np_a)
+    t_out = t_a.mean()
+    t_out.backward()
+
+    pt_a = torch.tensor(np_a, requires_grad=True)
+    pt_out = pt_a.mean()
+    pt_out.backward(torch.ones_like(pt_out))
+
+    assert_allclose(t_out.data, pt_out.detach().numpy(), rtol=RTOL, atol=ATOL)
+    assert_allclose(t_a.grad, pt_a.grad.numpy(), rtol=RTOL, atol=ATOL)  # type: ignore
