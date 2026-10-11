@@ -120,7 +120,7 @@ class Sequential(Module):
     def state_dict(self) -> OrderedDict[str, torch.Tensor]:
         state = OrderedDict()
         for i, module in enumerate(self.modules):
-            if isinstance(module, Stateless):
+            if issubclass(type(module), Stateless):
                 continue
 
             for key, val in vars(module).items():
