@@ -1,12 +1,13 @@
 from abc import abstractmethod
+from collections.abc import Sequence
 from enum import Enum, auto
 from typing import override
 
 import numpy as np
-from numpy.typing import NDArray
+from numpy import ndarray
+from numpy.typing import ArrayLike, NDArray
 
 from tensor32.exception import (
-    IncompatibleShapesError,
     InvalidDTypeError,
     InvalidLogArgError,
     InvalidShapeError,
@@ -15,13 +16,11 @@ from tensor32.exception import (
 
 class Operation(Enum):
     ADD = auto()
-    NEG = auto()
     SUB = auto()
     MUL = auto()
     DIV = auto()
     POW = auto()
     T = auto()
-    MT = auto()
     MATMUL = auto()
     RELU = auto()
     TANH = auto()
@@ -53,13 +52,12 @@ def unbroadcast(
 class Container:
     __slots__ = ("data",)
 
-    def __init__(self, data: float | NDArray[np.float32]) -> None:
-        if isinstance(data, (int, float)):
+    def __init__(self, data: ArrayLike) -> None:
+        if not isinstance(data, ndarray):
             data = np.array(data, dtype=np.float32)
-
         if data.dtype != np.float32:
             raise InvalidDTypeError(
-                f"Container.__init__: unsupported dtype of {data.dtype}"
+                f"Container.__init__: only supporting 32 bit float types, found {data.dtype}"
             )
 
         self.data = data
@@ -71,7 +69,7 @@ class Tensor(Container):
 
     def __init__(
         self,
-        data: float | NDArray[np.float32],
+        data: ArrayLike,
         operands: tuple[Container | Tensor, ...] | None = None,
         operation: Operation | None = None,
     ) -> None:
@@ -84,68 +82,45 @@ class Tensor(Container):
         if isinstance(operand_2, (int, float)):
             operand_2 = Container(data=operand_2)
 
-        try:
-            return Tensor(
-                data=self.data + operand_2.data,
-                operands=(self, operand_2),
-                operation=Operation.ADD,
-            )
-        except ValueError:
-            raise IncompatibleShapesError(
-                f"Tensor.__add__: shapes {self.data.shape} and {operand_2.data.shape} are incompatible in operation"
-            ) from None
+        return Tensor(
+            data=self.data + operand_2.data,
+            operands=(self, operand_2),
+            operation=Operation.ADD,
+        )
 
     def __radd__(self, operand_1: float | Container) -> Tensor:
         return self + operand_1
-
-    def __neg__(self) -> Tensor:
-        return Tensor(data=-self.data, operands=(self,), operation=Operation.NEG)
 
     def __sub__(self, operand_2: float | Container | Tensor) -> Tensor:
         if isinstance(operand_2, (int, float)):
             operand_2 = Container(data=operand_2)
 
-        try:
-            return Tensor(
-                data=self.data - operand_2.data,
-                # order of operands only matter in -, /, ** and @
-                operands=(self, operand_2),
-                operation=Operation.SUB,
-            )
-        except ValueError:
-            raise IncompatibleShapesError(
-                f"Tensor.__sub__: shapes {self.data.shape} and {operand_2.data.shape} are incompatible in operation"
-            ) from None
+        return Tensor(
+            data=self.data - operand_2.data,
+            # order of operands only matter in -, /, ** and @
+            operands=(self, operand_2),
+            operation=Operation.SUB,
+        )
 
     def __rsub__(self, operand_1: float | Container) -> Tensor:
         if isinstance(operand_1, (int, float)):
             operand_1 = Container(data=operand_1)
 
-        try:
-            return Tensor(
-                data=operand_1.data - self.data,
-                operands=(operand_1, self),
-                operation=Operation.SUB,
-            )
-        except ValueError:
-            raise IncompatibleShapesError(
-                f"Tensor.__rsub__: shapes {operand_1.data.shape} and {self.data.shape} are incompatible in operation"
-            ) from None
+        return Tensor(
+            data=operand_1.data - self.data,
+            operands=(operand_1, self),
+            operation=Operation.SUB,
+        )
 
     def __mul__(self, operand_2: float | Container | Tensor) -> Tensor:
         if isinstance(operand_2, (int, float)):
             operand_2 = Container(data=operand_2)
 
-        try:
-            return Tensor(
-                data=self.data * operand_2.data,
-                operands=(self, operand_2),
-                operation=Operation.MUL,
-            )
-        except ValueError:
-            raise IncompatibleShapesError(
-                f"Tensor.__mul__: shapes {self.data.shape} and {operand_2.data.shape} are incompatible in operation"
-            ) from None
+        return Tensor(
+            data=self.data * operand_2.data,
+            operands=(self, operand_2),
+            operation=Operation.MUL,
+        )
 
     def __rmul__(self, operand_1: float | Container) -> Tensor:
         return self * operand_1
@@ -156,16 +131,11 @@ class Tensor(Container):
         if np.any(divisor.data == 0):
             raise ZeroDivisionError("Tensor.__truediv__: 0 value(s) caught in divisor")
 
-        try:
-            return Tensor(
-                data=self.data / divisor.data,
-                operands=(self, divisor),
-                operation=Operation.DIV,
-            )
-        except ValueError:
-            raise IncompatibleShapesError(
-                f"Tensor.__truediv__: shapes {self.data.shape} and {divisor.data.shape} are incompatible in operation"
-            ) from None
+        return Tensor(
+            data=self.data / divisor.data,
+            operands=(self, divisor),
+            operation=Operation.DIV,
+        )
 
     def __rtruediv__(self, numerator: float | Container) -> Tensor:
         if np.any(self.data == 0):
@@ -173,32 +143,31 @@ class Tensor(Container):
         if isinstance(numerator, (int, float)):
             numerator = Container(data=numerator)
 
-        try:
-            return Tensor(
-                data=numerator.data / self.data,
-                operands=(numerator, self),
-                operation=Operation.DIV,
-            )
-        except ValueError:
-            raise IncompatibleShapesError(
-                f"Tensor.__rtruediv__: shapes {numerator.data.shape} and {self.data.shape} are incompatible in operation"
-            ) from None
+        return Tensor(
+            data=numerator.data / self.data,
+            operands=(numerator, self),
+            operation=Operation.DIV,
+        )
 
-    # no __rpow__ because I think it doesn't make sense
     def __pow__(self, exponent: float | Container | Tensor) -> Tensor:
         if isinstance(exponent, (int, float)):
             exponent = Container(data=exponent)
 
-        try:
-            return Tensor(
-                data=self.data**exponent.data,
-                operands=(self, exponent),
-                operation=Operation.POW,
-            )
-        except ValueError:
-            raise IncompatibleShapesError(
-                f"Tensor.__pow__: shapes {self.data.shape} and {exponent.data.shape} are incompatible in operation"
-            ) from None
+        return Tensor(
+            data=self.data**exponent.data,
+            operands=(self, exponent),
+            operation=Operation.POW,
+        )
+
+    def __rpow__(self, base: float | Container) -> Tensor:
+        if isinstance(base, (int, float)):
+            base = Container(data=base)
+
+        return Tensor(
+            data=base.data**self.data,
+            operands=(base, self),
+            operation=Operation.POW,
+        )
 
     @property
     def T(self) -> Tensor:
@@ -209,48 +178,29 @@ class Tensor(Container):
             operation=Operation.T,
         )
 
-    @property
-    def mT(self) -> Tensor:
-        try:
-            return Tensor(
-                # using copy because swapaxes only creates a view
-                data=np.swapaxes(self.data, -1, -2).copy(),
-                operands=(self,),
-                operation=Operation.MT,
-            )
-        except ValueError:
-            raise InvalidShapeError(
-                f"Tensor.mT: cannot matrix transpose a 1D tensor of shape {self.data.shape}"
-            ) from None
-
     def __matmul__(self, matrix_2: Container | Tensor) -> Tensor:
         if len(self.data.shape) < 2 or len(matrix_2.data.shape) < 2:
             raise InvalidShapeError(
                 f"Tensor.__matmul__: cannot do matrix multiplication on 1D tensors, found {self.data.shape} and {matrix_2.data.shape}"
             )
 
-        try:
-            return Tensor(
-                data=self.data @ matrix_2.data,
-                operands=(self, matrix_2),
-                operation=Operation.MATMUL,
-            )
-        except ValueError:
-            raise IncompatibleShapesError(
-                f"Tensor.__matmul__: shapes {self.data.shape} and {matrix_2.data.shape} are incompatible in operation"
-            ) from None
+        return Tensor(
+            data=self.data @ matrix_2.data,
+            operands=(self, matrix_2),
+            operation=Operation.MATMUL,
+        )
 
     def __rmatmul__(self, matrix_1: Container) -> Tensor:
-        try:
-            return Tensor(
-                data=matrix_1.data @ self.data,
-                operands=(matrix_1, self),
-                operation=Operation.MATMUL,
+        if len(matrix_1.data.shape) < 2 or len(self.data.shape) < 2:
+            raise InvalidShapeError(
+                f"Tensor.__rmatmul__: cannot do matrix multiplication on 1D tensors, found {matrix_1.data.shape} and {self.data.shape}"
             )
-        except ValueError:
-            raise IncompatibleShapesError(
-                f"Tensor.__rmatmul__: shapes {matrix_1.data.shape} and {self.data.shape} are incompatible in operation"
-            ) from None
+
+        return Tensor(
+            data=matrix_1.data @ self.data,
+            operands=(matrix_1, self),
+            operation=Operation.MATMUL,
+        )
 
     def relu(self) -> Tensor:
         return Tensor(
@@ -309,33 +259,29 @@ class Tensor(Container):
         for elem in reversed(ordered):
             if not isinstance(elem, Tensor) or not elem.operation:
                 continue
-            assert elem.operands  # assertions for lsp only
 
             # chain rule
             match elem.operation:
                 case Operation.ADD:
-                    op_1, op_2 = elem.operands
+                    op_1, op_2 = elem.operands  # type: ignore
                     if isinstance(op_1, Tensor):
                         op_1.grad += unbroadcast(elem.grad, op_1.grad.shape)
                     if isinstance(op_2, Tensor):
                         op_2.grad += unbroadcast(elem.grad, op_2.grad.shape)
-                case Operation.NEG:
-                    assert isinstance((op := elem.operands[0]), Tensor)
-                    op.grad += -elem.grad
                 case Operation.SUB:
-                    op_1, op_2 = elem.operands
+                    op_1, op_2 = elem.operands  # type: ignore
                     if isinstance(op_1, Tensor):
                         op_1.grad += unbroadcast(elem.grad, op_1.grad.shape)
                     if isinstance(op_2, Tensor):
                         op_2.grad += unbroadcast(-elem.grad, op_2.grad.shape)
                 case Operation.MUL:
-                    op_1, op_2 = elem.operands
+                    op_1, op_2 = elem.operands  # type: ignore
                     if isinstance(op_1, Tensor):
                         op_1.grad += unbroadcast(elem.grad * op_2.data, op_1.grad.shape)
                     if isinstance(op_2, Tensor):
                         op_2.grad += unbroadcast(elem.grad * op_1.data, op_2.grad.shape)
                 case Operation.DIV:
-                    op_1, op_2 = elem.operands
+                    op_1, op_2 = elem.operands  # type: ignore
                     if isinstance(op_1, Tensor):
                         op_1.grad += unbroadcast(elem.grad / op_2.data, op_1.grad.shape)
                     if isinstance(op_2, Tensor):
@@ -343,30 +289,26 @@ class Tensor(Container):
                             elem.grad * -op_1.data / op_2.data**2, op_2.grad.shape
                         )
                 case Operation.POW:
-                    op_1, op_2 = elem.operands
+                    op_1, op_2 = elem.operands  # type: ignore
                     if isinstance(op_1, Tensor):
                         op_1.grad += unbroadcast(
                             elem.grad * op_2.data * op_1.data ** (op_2.data - 1),
                             op_1.grad.shape,
                         )
-                    # will rarely or never find the gradient of the exponent
                     if isinstance(op_2, Tensor):
                         if np.any(op_1.data <= 0):
                             raise InvalidLogArgError(
                                 "Tensor.backward: -ve or 0 value(s) caught in base"
                             )
+
                         op_2.grad += unbroadcast(
                             elem.grad * np.log(op_1.data) * op_1.data**op_2.data,
                             op_2.grad.shape,
                         )
                 case Operation.T:
-                    assert isinstance((op := elem.operands[0]), Tensor)
-                    op.grad += elem.grad.T
-                case Operation.MT:
-                    assert isinstance((op := elem.operands[0]), Tensor)
-                    op.grad += np.swapaxes(elem.grad, -1, -2)
+                    elem.operands[0].grad += elem.grad.T  # type: ignore
                 case Operation.MATMUL:
-                    op_1, op_2 = elem.operands
+                    op_1, op_2 = elem.operands  # type: ignore
                     if isinstance(op_1, Tensor):
                         # using swapaxes prevents messing up batch dimensions if any
                         op_1.grad += unbroadcast(
@@ -377,17 +319,14 @@ class Tensor(Container):
                             np.swapaxes(op_1.data, -1, -2) @ elem.grad, op_2.grad.shape
                         )
                 case Operation.RELU:
-                    assert isinstance((op := elem.operands[0]), Tensor)
-                    op.grad += elem.grad * (op.data > 0).astype(np.float32)
+                    op = elem.operands[0]  # type: ignore
+                    op.grad += elem.grad * (op.data > 0).astype(  # type: ignore
+                        np.float32
+                    )
                 case Operation.TANH:
-                    assert isinstance((op := elem.operands[0]), Tensor)
-                    op.grad += elem.grad * (1 - elem.data**2)
+                    elem.operands[0].grad += elem.grad * (1 - elem.data**2)  # type: ignore
                 case Operation.SIGMOID:
-                    assert isinstance((op := elem.operands[0]), Tensor)
-                    op.grad += elem.grad * elem.data * (1 - elem.data)
+                    elem.operands[0].grad += elem.grad * elem.data * (1 - elem.data)  # type: ignore
                 case Operation.MEAN:
-                    assert isinstance((op := elem.operands[0]), Tensor)
-                    op.grad += elem.grad / op.data.size
-
-    def zero_grad(self) -> None:
-        self.grad = np.zeros_like(self.data, dtype=np.float32)
+                    op = elem.operands[0]  # type: ignore
+                    op.grad += elem.grad / op.data.size  # type: ignore
