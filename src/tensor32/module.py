@@ -7,7 +7,7 @@ import torch
 
 from tensor32 import Container, Tensor
 from tensor32.config import Config
-from tensor32.exception import MissingTensorError
+from tensor32.exception import InvalidShapeError, MissingTensorError
 
 
 class Module:
@@ -43,6 +43,11 @@ class Linear(Module):
 
     @override
     def forward(self, input: Container | Tensor) -> Container | Tensor:
+        if len(input.data.shape) < 2:
+            raise InvalidShapeError(
+                f"Linear.forward: expected a multi-dimensional container with batch size(s) first, found a container with shape {input.data.shape}"
+            )
+
         if Config.grad_enabled:
             return input @ self.weight.T + self.bias
         else:
@@ -60,7 +65,7 @@ class ReLU(Module, Stateless):
             # without no_grad, input should be a tensor
             if not isinstance(input, Tensor):
                 raise MissingTensorError(
-                    f"ReLU.forward: expected a Tensor under gradient tracking context, found {type(input).__name__}"
+                    f"ReLU.forward: expected a tensor under gradient tracking context, found {type(input).__name__}"
                 )
             return input.relu()
         else:
@@ -77,7 +82,7 @@ class Tanh(Module, Stateless):
         if Config.grad_enabled:
             if not isinstance(input, Tensor):
                 raise MissingTensorError(
-                    f"Tanh.forward: expected a Tensor under gradient tracking context, found {type(input).__name__}"
+                    f"Tanh.forward: expected a tensor under gradient tracking context, found {type(input).__name__}"
                 )
             return input.tanh()
         else:
@@ -94,7 +99,7 @@ class Sigmoid(Module, Stateless):
         if Config.grad_enabled:
             if not isinstance(input, Tensor):
                 raise MissingTensorError(
-                    f"Sigmoid.forward: expected a Tensor under gradient tracking context, found {type(input).__name__}"
+                    f"Sigmoid.forward: expected a tensor under gradient tracking context, found {type(input).__name__}"
                 )
             return input.sigmoid()
         else:
@@ -160,7 +165,7 @@ class MSELoss(Module, Stateless):
             # without no_grad, either pred or actual has to be a tensor
             if not isinstance(pred, Tensor) or not isinstance(actual, Tensor):
                 raise MissingTensorError(
-                    f"MSELoss.forward: expected a Tensor under gradient tracking context, found {type(pred).__name__} and {type(actual).__name__}"
+                    f"MSELoss.forward: expected a tensor under gradient tracking context, found {type(pred).__name__} and {type(actual).__name__}"
                 )
 
             return ((pred - actual) ** 2).mean()
