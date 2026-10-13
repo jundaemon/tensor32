@@ -1,4 +1,6 @@
+from abc import abstractmethod
 from enum import Enum, auto
+from typing import override
 
 import numpy as np
 from numpy.typing import NDArray
@@ -7,6 +9,7 @@ from tensor32.exception import (
     IncompatibleShapesError,
     InvalidDTypeError,
     InvalidLogArgError,
+    InvalidShapeError,
 )
 
 
@@ -89,7 +92,7 @@ class Tensor(Container):
             )
         except ValueError:
             raise IncompatibleShapesError(
-                f"Tensor.__add__: shapes {self.data.shape} and {operand_2.data.shape} are incompatible in addition"
+                f"Tensor.__add__: shapes {self.data.shape} and {operand_2.data.shape} are incompatible in operation"
             ) from None
 
     def __radd__(self, operand_1: float | Container) -> Tensor:
@@ -111,7 +114,7 @@ class Tensor(Container):
             )
         except ValueError:
             raise IncompatibleShapesError(
-                f"Tensor.__sub__: shapes {self.data.shape} and {operand_2.data.shape} are incompatible in subtraction"
+                f"Tensor.__sub__: shapes {self.data.shape} and {operand_2.data.shape} are incompatible in operation"
             ) from None
 
     def __rsub__(self, operand_1: float | Container) -> Tensor:
@@ -126,7 +129,7 @@ class Tensor(Container):
             )
         except ValueError:
             raise IncompatibleShapesError(
-                f"Tensor.__rsub__: shapes {operand_1.data.shape} and {self.data.shape} are incompatible in subtraction"
+                f"Tensor.__rsub__: shapes {operand_1.data.shape} and {self.data.shape} are incompatible in operation"
             ) from None
 
     def __mul__(self, operand_2: float | Container | Tensor) -> Tensor:
@@ -141,7 +144,7 @@ class Tensor(Container):
             )
         except ValueError:
             raise IncompatibleShapesError(
-                f"Tensor.__mul__: shapes {self.data.shape} and {operand_2.data.shape} are incompatible in multiplication"
+                f"Tensor.__mul__: shapes {self.data.shape} and {operand_2.data.shape} are incompatible in operation"
             ) from None
 
     def __rmul__(self, operand_1: float | Container) -> Tensor:
@@ -161,7 +164,7 @@ class Tensor(Container):
             )
         except ValueError:
             raise IncompatibleShapesError(
-                f"Tensor.__truediv__: shapes {self.data.shape} and {divisor.data.shape} are incompatible in division"
+                f"Tensor.__truediv__: shapes {self.data.shape} and {divisor.data.shape} are incompatible in operation"
             ) from None
 
     def __rtruediv__(self, numerator: float | Container) -> Tensor:
@@ -178,7 +181,7 @@ class Tensor(Container):
             )
         except ValueError:
             raise IncompatibleShapesError(
-                f"Tensor.__rtruediv__: shapes {numerator.data.shape} and {self.data.shape} are incompatible in division"
+                f"Tensor.__rtruediv__: shapes {numerator.data.shape} and {self.data.shape} are incompatible in operation"
             ) from None
 
     # no __rpow__ because I think it doesn't make sense
@@ -194,7 +197,7 @@ class Tensor(Container):
             )
         except ValueError:
             raise IncompatibleShapesError(
-                f"Tensor.__pow__: shapes {self.data.shape} and {exponent.data.shape} are incompatible in raising power"
+                f"Tensor.__pow__: shapes {self.data.shape} and {exponent.data.shape} are incompatible in operation"
             ) from None
 
     @property
@@ -208,14 +211,24 @@ class Tensor(Container):
 
     @property
     def mT(self) -> Tensor:
-        return Tensor(
-            # using copy because swapaxes only creates a view
-            data=np.swapaxes(self.data, -1, -2).copy(),
-            operands=(self,),
-            operation=Operation.MT,
-        )
+        try:
+            return Tensor(
+                # using copy because swapaxes only creates a view
+                data=np.swapaxes(self.data, -1, -2).copy(),
+                operands=(self,),
+                operation=Operation.MT,
+            )
+        except ValueError:
+            raise InvalidShapeError(
+                f"Tensor.mT: cannot matrix transpose a 1D tensor of shape {self.data.shape}"
+            ) from None
 
     def __matmul__(self, matrix_2: Container | Tensor) -> Tensor:
+        if len(self.data.shape) < 2 or len(matrix_2.data.shape) < 2:
+            raise InvalidShapeError(
+                f"Tensor.__matmul__: cannot do matrix multiplication on 1D tensors, found {self.data.shape} and {matrix_2.data.shape}"
+            )
+
         try:
             return Tensor(
                 data=self.data @ matrix_2.data,
@@ -224,7 +237,7 @@ class Tensor(Container):
             )
         except ValueError:
             raise IncompatibleShapesError(
-                f"Tensor.__matmul__: shapes {self.data.shape} and {matrix_2.data.shape} are incompatible in matrix multiplication"
+                f"Tensor.__matmul__: shapes {self.data.shape} and {matrix_2.data.shape} are incompatible in operation"
             ) from None
 
     def __rmatmul__(self, matrix_1: Container) -> Tensor:
@@ -236,7 +249,7 @@ class Tensor(Container):
             )
         except ValueError:
             raise IncompatibleShapesError(
-                f"Tensor.__rmatmul__: shapes {matrix_1.data.shape} and {self.data.shape} are incompatible in matrix multiplication"
+                f"Tensor.__rmatmul__: shapes {matrix_1.data.shape} and {self.data.shape} are incompatible in operation"
             ) from None
 
     def relu(self) -> Tensor:

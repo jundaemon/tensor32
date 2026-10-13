@@ -128,6 +128,17 @@ class Sequential(Module):
     def __call__(self, input: Container | Tensor) -> Container | Tensor:
         return self.forward(input)
 
+    def parameters(self) -> list[Tensor]:
+        params = []
+        for module in self.modules:
+            if issubclass(type(module), Stateless):
+                continue
+
+            for val in vars(module).values():
+                params.append(val)
+
+        return params
+
     def state_dict(self) -> OrderedDict[str, torch.Tensor]:
         state = OrderedDict()
         for i, module in enumerate(self.modules):
@@ -158,6 +169,6 @@ class MSELoss(Module, Stateless):
 
     @override
     def __call__(
-        self, pred: Container, actual: Container | Tensor
+        self, pred: Container | Tensor, actual: Container | Tensor
     ) -> Container | Tensor:
         return self.forward(pred, actual)
