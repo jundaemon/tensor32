@@ -20,6 +20,7 @@ class Operation(Enum):
     DIV = auto()
     POW = auto()
     T = auto()
+    MT = auto()
     MATMUL = auto()
     RELU = auto()
     TANH = auto()
@@ -177,6 +178,20 @@ class Tensor(Container):
             operation=Operation.T,
         )
 
+    @property
+    def mT(self) -> Tensor:
+        if len(self.data.shape) < 2:
+            raise InvalidShapeError(
+                f"Tensor.mT: cannot do matrix transpose on a 1D tensor, found {self.data.shape}"
+            )
+
+        return Tensor(
+            # using copy because .swapaxes only creates a view
+            data=np.swapaxes(self.data, -1, -2).copy(),
+            operands=(self,),
+            operation=Operation.MT,
+        )
+
     def __matmul__(self, matrix_2: Container | Tensor) -> Tensor:
         if len(self.data.shape) < 2 or len(matrix_2.data.shape) < 2:
             raise InvalidShapeError(
@@ -305,6 +320,8 @@ class Tensor(Container):
                         )
                 case Operation.T:
                     elem.operands[0].grad += elem.grad.T  # type: ignore
+                case Operation.MT:
+                    elem.operands[0].grad += np.swapaxes(elem.grad, -1, -2)  # type: ignore
                 case Operation.MATMUL:
                     op_1, op_2 = elem.operands  # type: ignore
                     # using swapaxes prevents messing up batch dimensions if any

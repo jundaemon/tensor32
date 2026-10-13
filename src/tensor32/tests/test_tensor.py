@@ -104,6 +104,22 @@ def test_T() -> None:
     assert_allclose(t_a.grad, pt_a.grad.numpy(), rtol=RTOL, atol=ATOL)  # type: ignore
 
 
+def test_mT() -> None:
+    rng = np.random.default_rng()
+    np_a = rng.standard_normal((2, 3, 4, 5), dtype=np.float32)
+
+    t_a = Tensor(np_a)
+    t_out = t_a.mT
+    t_out.backward()
+
+    pt_a = torch.tensor(np_a, requires_grad=True)
+    pt_out = pt_a.mT
+    pt_out.backward(torch.ones_like(pt_out))
+
+    assert_allclose(t_out.data, pt_out.detach().numpy(), rtol=RTOL, atol=ATOL)
+    assert_allclose(t_a.grad, pt_a.grad.numpy(), rtol=RTOL, atol=ATOL)  # type: ignore
+
+
 def test_scalars() -> None:
     rng = np.random.default_rng()
     np_a = rng.standard_normal((3, 3), dtype=np.float32)
