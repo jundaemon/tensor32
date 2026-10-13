@@ -1,5 +1,4 @@
 from abc import abstractmethod
-from collections.abc import Sequence
 from enum import Enum, auto
 from typing import override
 
@@ -300,7 +299,6 @@ class Tensor(Container):
                             raise InvalidLogArgError(
                                 "Tensor.backward: -ve or 0 value(s) caught in base"
                             )
-
                         op_2.grad += unbroadcast(
                             elem.grad * np.log(op_1.data) * op_1.data**op_2.data,
                             op_2.grad.shape,
@@ -309,8 +307,8 @@ class Tensor(Container):
                     elem.operands[0].grad += elem.grad.T  # type: ignore
                 case Operation.MATMUL:
                     op_1, op_2 = elem.operands  # type: ignore
+                    # using swapaxes prevents messing up batch dimensions if any
                     if isinstance(op_1, Tensor):
-                        # using swapaxes prevents messing up batch dimensions if any
                         op_1.grad += unbroadcast(
                             elem.grad @ np.swapaxes(op_2.data, -1, -2), op_1.grad.shape
                         )
@@ -320,9 +318,7 @@ class Tensor(Container):
                         )
                 case Operation.RELU:
                     op = elem.operands[0]  # type: ignore
-                    op.grad += elem.grad * (op.data > 0).astype(  # type: ignore
-                        np.float32
-                    )
+                    op.grad += elem.grad * (op.data > 0).astype(np.float32)  # type: ignore
                 case Operation.TANH:
                     elem.operands[0].grad += elem.grad * (1 - elem.data**2)  # type: ignore
                 case Operation.SIGMOID:
