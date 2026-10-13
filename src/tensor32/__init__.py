@@ -273,29 +273,30 @@ class Tensor(Container):
         for elem in reversed(ordered):
             if not isinstance(elem, Tensor) or not elem.operation:
                 continue
+            assert elem.operands  # assertions for lsp only
 
             # chain rule
             match elem.operation:
                 case Operation.ADD:
-                    op_1, op_2 = elem.operands  # type: ignore
+                    op_1, op_2 = elem.operands
                     if isinstance(op_1, Tensor):
                         op_1.grad += unbroadcast(elem.grad, op_1.grad.shape)
                     if isinstance(op_2, Tensor):
                         op_2.grad += unbroadcast(elem.grad, op_2.grad.shape)
                 case Operation.SUB:
-                    op_1, op_2 = elem.operands  # type: ignore
+                    op_1, op_2 = elem.operands
                     if isinstance(op_1, Tensor):
                         op_1.grad += unbroadcast(elem.grad, op_1.grad.shape)
                     if isinstance(op_2, Tensor):
                         op_2.grad += unbroadcast(-elem.grad, op_2.grad.shape)
                 case Operation.MUL:
-                    op_1, op_2 = elem.operands  # type: ignore
+                    op_1, op_2 = elem.operands
                     if isinstance(op_1, Tensor):
                         op_1.grad += unbroadcast(elem.grad * op_2.data, op_1.grad.shape)
                     if isinstance(op_2, Tensor):
                         op_2.grad += unbroadcast(elem.grad * op_1.data, op_2.grad.shape)
                 case Operation.DIV:
-                    op_1, op_2 = elem.operands  # type: ignore
+                    op_1, op_2 = elem.operands
                     if isinstance(op_1, Tensor):
                         op_1.grad += unbroadcast(elem.grad / op_2.data, op_1.grad.shape)
                     if isinstance(op_2, Tensor):
@@ -303,7 +304,7 @@ class Tensor(Container):
                             elem.grad * -op_1.data / op_2.data**2, op_2.grad.shape
                         )
                 case Operation.POW:
-                    op_1, op_2 = elem.operands  # type: ignore
+                    op_1, op_2 = elem.operands
                     if isinstance(op_1, Tensor):
                         op_1.grad += unbroadcast(
                             elem.grad * op_2.data * op_1.data ** (op_2.data - 1),
@@ -319,11 +320,13 @@ class Tensor(Container):
                             op_2.grad.shape,
                         )
                 case Operation.T:
-                    elem.operands[0].grad += elem.grad.T  # type: ignore
+                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op.grad += elem.grad.T
                 case Operation.MT:
-                    elem.operands[0].grad += np.swapaxes(elem.grad, -1, -2)  # type: ignore
+                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op.grad += np.swapaxes(elem.grad, -1, -2)
                 case Operation.MATMUL:
-                    op_1, op_2 = elem.operands  # type: ignore
+                    op_1, op_2 = elem.operands
                     # using swapaxes prevents messing up batch dimensions if any
                     if isinstance(op_1, Tensor):
                         op_1.grad += unbroadcast(
@@ -334,12 +337,14 @@ class Tensor(Container):
                             np.swapaxes(op_1.data, -1, -2) @ elem.grad, op_2.grad.shape
                         )
                 case Operation.RELU:
-                    op = elem.operands[0]  # type: ignore
-                    op.grad += elem.grad * (op.data > 0).astype(np.float32)  # type: ignore
+                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op.grad += elem.grad * (op.data > 0).astype(np.float32)
                 case Operation.TANH:
-                    elem.operands[0].grad += elem.grad * (1 - elem.data**2)  # type: ignore
+                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op.grad += elem.grad * (1 - elem.data**2)
                 case Operation.SIGMOID:
-                    elem.operands[0].grad += elem.grad * elem.data * (1 - elem.data)  # type: ignore
+                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op.grad += elem.grad * elem.data * (1 - elem.data)
                 case Operation.MEAN:
-                    op = elem.operands[0]  # type: ignore
-                    op.grad += elem.grad / op.data.size  # type: ignore
+                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op.grad += elem.grad / op.data.size
