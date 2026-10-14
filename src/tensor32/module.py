@@ -17,9 +17,6 @@ class Module:
     def __call__(self, *args: Any, **kwargs: Any) -> Container | Tensor: ...
 
 
-class Stateless: ...
-
-
 class Linear(Module):
     def __init__(self, in_features: int, out_features: int) -> None:
         rng = np.random.default_rng()
@@ -50,7 +47,9 @@ class Linear(Module):
             raise ArgumentError(
                 f"Linear.forward: expected a multi-dimensional input with batch size(s) first, found shape {X.data.shape}"
             )
+
         if grad:
+            # the choice of having gradients for inputs is up to the user
             return X @ self.weight.T + self.bias
         else:
             return Container(data=X.data @ self.weight.data.T + self.bias.data)
@@ -64,7 +63,7 @@ class Linear(Module):
         return self.forward(X, grad)
 
 
-class ReLU(Module, Stateless):
+class ReLU(Module):
     @overload
     def forward(self, z: Tensor, grad: Literal[True] = True) -> Tensor: ...
     @overload
@@ -73,6 +72,7 @@ class ReLU(Module, Stateless):
     def forward(self, z: Container | Tensor, grad: bool = True) -> Container | Tensor:
         if grad:
             if not isinstance(z, Tensor):
+                # unlike linear, if grad is true, input has to be a tensor
                 raise ArgumentError(
                     f"ReLU.forward: expected a tensor under gradient tracking context, found {type(z).__name__}"
                 )
@@ -89,7 +89,7 @@ class ReLU(Module, Stateless):
         return self.forward(z, grad)  # type: ignore
 
 
-class Tanh(Module, Stateless):
+class Tanh(Module):
     @overload
     def forward(self, z: Tensor, grad: Literal[True] = True) -> Tensor: ...
     @overload
@@ -114,7 +114,7 @@ class Tanh(Module, Stateless):
         return self.forward(z, grad)  # type: ignore
 
 
-class Sigmoid(Module, Stateless):
+class Sigmoid(Module):
     @overload
     def forward(self, z: Tensor, grad: Literal[True] = True) -> Tensor: ...
     @overload
@@ -153,6 +153,10 @@ class Sequential(Module):
                 raise ArgumentError(
                     "Sequential.__init__: cannot nest sequential classes"
                 )
+            if isinstance(module, Loss):
+                raise ArgumentError(
+                    "Sequential.__init__: cannot accept loss functions in sequence"
+                )
         self.modules = args
 
     @overload
@@ -178,8 +182,6 @@ class Sequential(Module):
     def parameters(self) -> list[Tensor]:
         params = []
         for module in self.modules:
-            if issubclass(type(module), Stateless):
-                continue
             for val in vars(module).values():
                 if isinstance(val, Tensor):
                     params.append(val)
@@ -189,16 +191,17 @@ class Sequential(Module):
     def state_dict(self) -> OrderedDict[str, torch.Tensor]:
         state = OrderedDict()
         for i, module in enumerate(self.modules):
-            if issubclass(type(module), Stateless):
-                continue
             for key, val in vars(module).items():
-                if isinstance(val, Tensor):
+                if isinstance(val, Tensor) or isinstance(val, Container):
                     state[f"{i}.{key}"] = torch.from_numpy(val.data)
 
         return state
 
 
-class MSELoss(Module, Stateless):
+class Loss(Module): ...
+
+
+class MSELoss(Loss):
     @overload
     def forward(
         self, yc: Container | Tensor, y: Container | Tensor, grad: Literal[True] = True
@@ -212,11 +215,12 @@ class MSELoss(Module, Stateless):
         self, yc: Container | Tensor, y: Container | Tensor, grad: bool = True
     ) -> Container | Tensor:
         if grad:
-            if not isinstance(yc, Tensor) or not isinstance(y, Tensor):
+            # if grad is true, either input has to be tensor
+            if not isinstance(yc, Tensor) and not isinstance(y, Tensor):
                 raise ArgumentError(
                     f"MSELoss.forward: expected a tensor under gradient tracking context, found {type(yc).__name__} and {type(y).__name__}"
                 )
-            return ((yc - y) ** 2).mean()
+            return ((yc - y) ** 2).mean()  # type: ignore
         else:
             return Container(data=float(((yc.data - y.data) ** 2).mean()))
 
