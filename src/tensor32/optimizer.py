@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import override
+from typing import Literal, overload, override
 
 import numpy as np
 
@@ -20,8 +20,16 @@ class Optimizer:
 
 
 class SGD(Optimizer):
+    @overload
     def __new__(
-        cls, parameters: list[Tensor], learning_rate: float = 1e-3, momentum: float = 0
+        cls, parameters: list[Tensor], lr: float = 1e-3, momentum: Literal[0] = 0
+    ) -> SGD: ...
+    @overload
+    def __new__(
+        cls, parameters: list[Tensor], lr: float = 1e-3, momentum: float = 0
+    ) -> SGDMomentum: ...
+    def __new__(
+        cls, parameters: list[Tensor], lr: float = 1e-3, momentum: float = 0
     ) -> SGD | SGDMomentum:
         if cls is SGD and momentum > 0:
             return super().__new__(SGDMomentum)
@@ -29,11 +37,11 @@ class SGD(Optimizer):
         return super().__new__(cls)
 
     def __init__(
-        self, parameters: list[Tensor], learning_rate: float = 1e-3, momentum: float = 0
+        self, parameters: list[Tensor], lr: float = 1e-3, momentum: float = 0
     ) -> None:
-        if learning_rate <= 0:
+        if lr <= 0:
             raise ArgumentError(
-                f"SGD.__init__: learning rate should be more than 0, received {learning_rate}"
+                f"SGD.__init__: learning rate should be more than 0, received {lr}"
             )
         if momentum < 0:
             raise ArgumentError(
@@ -41,19 +49,19 @@ class SGD(Optimizer):
             )
 
         super().__init__(parameters)
-        self.learning_rate = learning_rate
+        self.lr = lr
 
     @override
     def step(self) -> None:
         for tensor in self.parameters:
-            tensor.data -= self.learning_rate * tensor.grad
+            tensor.data -= self.lr * tensor.grad
 
 
 class SGDMomentum(SGD):
     def __init__(
-        self, parameters: list[Tensor], learning_rate: float = 1e-3, momentum: float = 0
+        self, parameters: list[Tensor], lr: float = 1e-3, momentum: float = 0
     ) -> None:
-        super().__init__(parameters, learning_rate, momentum)
+        super().__init__(parameters, lr, momentum)
         self.momentum = momentum
         self.velocities = []
         for tensor in parameters:
@@ -63,5 +71,5 @@ class SGDMomentum(SGD):
     def step(self) -> None:
         for tensor, velocity in zip(self.parameters, self.velocities):
             velocity *= self.momentum
-            veloctiy += self.learning_rate * tensor.grad
+            velocity += self.lr * tensor.grad
             tensor.data -= velocity
