@@ -4,7 +4,7 @@ from typing import override
 import numpy as np
 
 from tensor32 import Tensor
-from tensor32.exception import InvalidLearningRateError, InvalidMomentumError
+from tensor32.exception import ArgumentError
 
 
 class Optimizer:
@@ -32,11 +32,11 @@ class SGD(Optimizer):
         self, parameters: list[Tensor], learning_rate: float = 1e-3, momentum: float = 0
     ) -> None:
         if learning_rate <= 0:
-            raise InvalidLearningRateError(
+            raise ArgumentError(
                 f"SGD.__init__: learning rate should be more than 0, received {learning_rate}"
             )
         if momentum < 0:
-            raise InvalidMomentumError(
+            raise ArgumentError(
                 f"SGD.__init__: momentum should be more than or equals to 0, received {momentum}"
             )
 

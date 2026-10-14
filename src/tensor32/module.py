@@ -1,13 +1,12 @@
 from abc import abstractmethod
 from collections import OrderedDict
-from typing import Any, override
+from typing import Any, Literal, overload, override
 
 import numpy as np
 import torch
 
 from tensor32 import Container, Tensor
-from tensor32.config import Config
-from tensor32.exception import InvalidShapeError, MissingTensorError
+from tensor32.exception import ArgumentError
 
 
 class Module:
@@ -22,116 +21,160 @@ class Stateless: ...
 
 
 class Linear(Module):
-    def __init__(self, in_channels: int, out_channels: int) -> None:
+    def __init__(self, in_features: int, out_features: int) -> None:
         rng = np.random.default_rng()
 
         # bound for Kaiming uniform initialization in fan in mode
-        w_bound = np.sqrt(6 / in_channels)
+        w_bound = np.sqrt(6 / in_features)
         self.weight = Tensor(
             data=rng.uniform(
-                low=-w_bound, high=w_bound, size=(out_channels, in_channels)
+                low=-w_bound, high=w_bound, size=(out_features, in_features)
             ).astype(np.float32)
         )
 
         # bound for scaled LeCun uniform initialization
-        b_bound = np.sqrt(1 / in_channels)
+        b_bound = np.sqrt(1 / in_features)
         self.bias = Tensor(
-            data=rng.uniform(low=-b_bound, high=b_bound, size=out_channels).astype(
+            data=rng.uniform(low=-b_bound, high=b_bound, size=out_features).astype(
                 np.float32
             )
         )
 
+    @overload
+    def forward(self, X: Container | Tensor, grad: Literal[True] = True) -> Tensor: ...
+    @overload
+    def forward(self, X: Container | Tensor, grad: Literal[False]) -> Container: ...
     @override
-    def forward(self, input: Container | Tensor) -> Container | Tensor:
-        if len(input.data.shape) < 2:
-            raise InvalidShapeError(
-                f"Linear.forward: expected a multi-dimensional container with batch size(s) first, found a container with shape {input.data.shape}"
+    def forward(self, X: Container | Tensor, grad: bool = True) -> Container | Tensor:
+        if len(X.data.shape) < 2:
+            raise ArgumentError(
+                f"Linear.forward: expected a multi-dimensional input with batch size(s) first, found shape {X.data.shape}"
             )
 
-        if Config.grad_enabled:
-            return input @ self.weight.T + self.bias
+        if grad:
+            return X @ self.weight.T + self.bias
         else:
-            return Container(data=input.data @ self.weight.data.T + self.bias.data)
+            return Container(data=X.data @ self.weight.data.T + self.bias.data)
 
+    @overload
+    def __call__(self, X: Container | Tensor, grad: Literal[True] = True) -> Tensor: ...
+    @overload
+    def __call__(self, X: Container | Tensor, grad: Literal[False]) -> Container: ...
     @override
-    def __call__(self, input: Container | Tensor) -> Container | Tensor:
-        return self.forward(input)
+    def __call__(self, X: Container | Tensor, grad: bool = True) -> Container | Tensor:
+        return self.forward(X, grad)
 
 
 class ReLU(Module, Stateless):
+    @overload
+    def forward(self, z: Tensor, grad: Literal[True] = True) -> Tensor: ...
+    @overload
+    def forward(self, z: Container | Tensor, grad: Literal[False]) -> Container: ...
     @override
-    def forward(self, input: Container | Tensor) -> Container | Tensor:
-        if Config.grad_enabled:
-            # without no_grad, input should be a tensor
-            if not isinstance(input, Tensor):
-                raise MissingTensorError(
-                    f"ReLU.forward: expected a tensor under gradient tracking context, found {type(input).__name__}"
+    def forward(self, z: Container | Tensor, grad: bool = True) -> Container | Tensor:
+        if grad:
+            if not isinstance(z, Tensor):
+                raise ArgumentError(
+                    f"ReLU.forward: expected a tensor under gradient tracking context, found {type(z).__name__}"
                 )
-            return input.relu()
+            return z.relu()
         else:
-            return Container(data=np.maximum(0, input.data, dtype=np.float32))
+            return Container(data=np.maximum(0, z.data, dtype=np.float32))
 
+    @overload
+    def __call__(self, z: Tensor, grad: Literal[True] = True) -> Tensor: ...
+    @overload
+    def __call__(self, z: Container | Tensor, grad: Literal[False]) -> Container: ...
     @override
-    def __call__(self, input: Container | Tensor) -> Container | Tensor:
-        return self.forward(input)
+    def __call__(self, z: Container | Tensor, grad: bool = True) -> Container | Tensor:
+        return self.forward(z, grad)  # type: ignore
 
 
 class Tanh(Module, Stateless):
+    @overload
+    def forward(self, z: Tensor, grad: Literal[True] = True) -> Tensor: ...
+    @overload
+    def forward(self, z: Container | Tensor, grad: Literal[False]) -> Container: ...
     @override
-    def forward(self, input: Container | Tensor) -> Container | Tensor:
-        if Config.grad_enabled:
-            if not isinstance(input, Tensor):
-                raise MissingTensorError(
-                    f"Tanh.forward: expected a tensor under gradient tracking context, found {type(input).__name__}"
+    def forward(self, z: Container | Tensor, grad: bool = True) -> Container | Tensor:
+        if grad:
+            if not isinstance(z, Tensor):
+                raise ArgumentError(
+                    f"Tanh.forward: expected a tensor under gradient tracking context, found {type(z).__name__}"
                 )
-            return input.tanh()
+            return z.tanh()
         else:
-            return Container(data=np.tanh(input.data, dtype=np.float32))
+            return Container(data=np.tanh(z.data, dtype=np.float32))
 
+    @overload
+    def __call__(self, z: Tensor, grad: Literal[True] = True) -> Tensor: ...
+    @overload
+    def __call__(self, z: Container | Tensor, grad: Literal[False]) -> Container: ...
     @override
-    def __call__(self, input: Container | Tensor) -> Container | Tensor:
-        return self.forward(input)
+    def __call__(self, z: Container | Tensor, grad: bool = True) -> Container | Tensor:
+        return self.forward(z, grad)  # type: ignore
 
 
 class Sigmoid(Module, Stateless):
+    @overload
+    def forward(self, z: Tensor, grad: Literal[True] = True) -> Tensor: ...
+    @overload
+    def forward(self, z: Container | Tensor, grad: Literal[False]) -> Container: ...
     @override
-    def forward(self, input: Container | Tensor) -> Container | Tensor:
-        if Config.grad_enabled:
-            if not isinstance(input, Tensor):
-                raise MissingTensorError(
-                    f"Sigmoid.forward: expected a tensor under gradient tracking context, found {type(input).__name__}"
+    def forward(self, z: Container | Tensor, grad: bool = True) -> Container | Tensor:
+        if grad:
+            if not isinstance(z, Tensor):
+                raise ArgumentError(
+                    f"Sigmoid.forward: expected a tensor under gradient tracking context, found {type(z).__name__}"
                 )
-            return input.sigmoid()
+            return z.sigmoid()
         else:
             # numerically stable sigmoid, prevents division by inf and overflow
             return Container(
                 data=np.where(
-                    input.data >= 0,
-                    1 / (1 + np.exp(-input.data)),
-                    np.exp(input.data) / (1 + np.exp(input.data)),
+                    z.data >= 0,
+                    1 / (1 + np.exp(-z.data)),
+                    np.exp(z.data) / (1 + np.exp(z.data)),
                 ).astype(np.float32)
             )
 
+    @overload
+    def __call__(self, z: Tensor, grad: Literal[True] = True) -> Tensor: ...
+    @overload
+    def __call__(self, z: Container | Tensor, grad: Literal[False]) -> Container: ...
     @override
-    def __call__(self, input: Container | Tensor) -> Container | Tensor:
-        return self.forward(input)
+    def __call__(self, z: Container | Tensor, grad: bool = True) -> Container | Tensor:
+        return self.forward(z, grad)  # type: ignore
 
 
 class Sequential(Module):
     def __init__(self, *args: Module) -> None:
+        for module in args:
+            if isinstance(module, Sequential):
+                raise ArgumentError(
+                    "Sequential.__init__: cannot nest sequential classes"
+                )
         self.modules = args
 
+    @overload
+    def forward(self, X: Container | Tensor, grad: Literal[True] = True) -> Tensor: ...
+    @overload
+    def forward(self, X: Container | Tensor, grad: Literal[False]) -> Container: ...
     @override
-    def forward(self, input: Container | Tensor) -> Container | Tensor:
-        state = input
+    def forward(self, X: Container | Tensor, grad: bool = True) -> Container | Tensor:
+        state = X
         for module in self.modules:
-            state = module(state)
+            state = module(state, grad)
 
         return state
 
+    @overload
+    def __call__(self, X: Container | Tensor, grad: Literal[True] = True) -> Tensor: ...
+    @overload
+    def __call__(self, X: Container | Tensor, grad: Literal[False]) -> Container: ...
     @override
-    def __call__(self, input: Container | Tensor) -> Container | Tensor:
-        return self.forward(input)
+    def __call__(self, X: Container | Tensor, grad: bool = True) -> Container | Tensor:
+        return self.forward(X, grad)
 
     def parameters(self) -> list[Tensor]:
         params = []
@@ -140,7 +183,8 @@ class Sequential(Module):
                 continue
 
             for val in vars(module).values():
-                params.append(val)
+                if isinstance(val, Tensor):
+                    params.append(val)
 
         return params
 
@@ -151,29 +195,44 @@ class Sequential(Module):
                 continue
 
             for key, val in vars(module).items():
-                state[f"{i}.{key}"] = torch.from_numpy(val.data)
+                if isinstance(val, Tensor):
+                    state[f"{i}.{key}"] = torch.from_numpy(val.data)
 
         return state
 
 
 class MSELoss(Module, Stateless):
+    @overload
+    def forward(
+        self, yc: Container | Tensor, y: Container | Tensor, grad: Literal[True] = True
+    ) -> Tensor: ...
+    @overload
+    def forward(
+        self, yc: Container | Tensor, y: Container | Tensor, grad: Literal[False]
+    ) -> Container: ...
     @override
     def forward(
-        self, pred: Container | Tensor, actual: Container | Tensor
+        self, yc: Container | Tensor, y: Container | Tensor, grad: bool = True
     ) -> Container | Tensor:
-        if Config.grad_enabled:
-            # without no_grad, either pred or actual has to be a tensor
-            if not isinstance(pred, Tensor) or not isinstance(actual, Tensor):
-                raise MissingTensorError(
-                    f"MSELoss.forward: expected a tensor under gradient tracking context, found {type(pred).__name__} and {type(actual).__name__}"
+        if grad:
+            if not isinstance(yc, Tensor) or not isinstance(y, Tensor):
+                raise ArgumentError(
+                    f"MSELoss.forward: expected a tensor under gradient tracking context, found {type(yc).__name__} and {type(y).__name__}"
                 )
-
-            return ((pred - actual) ** 2).mean()
+            return ((yc - y) ** 2).mean()
         else:
-            return Container(data=float(((pred.data - actual.data) ** 2).mean()))
+            return Container(data=float(((yc.data - y.data) ** 2).mean()))
 
+    @overload
+    def __call__(
+        self, yc: Container | Tensor, y: Container | Tensor, grad: Literal[True] = True
+    ) -> Tensor: ...
+    @overload
+    def __call__(
+        self, yc: Container | Tensor, y: Container | Tensor, grad: Literal[False]
+    ) -> Container: ...
     @override
     def __call__(
-        self, pred: Container | Tensor, actual: Container | Tensor
+        self, yc: Container | Tensor, y: Container | Tensor, grad: bool = True
     ) -> Container | Tensor:
-        return self.forward(pred, actual)
+        return self.forward(yc, y, grad)
