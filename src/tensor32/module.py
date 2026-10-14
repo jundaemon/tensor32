@@ -50,7 +50,6 @@ class Linear(Module):
             raise ArgumentError(
                 f"Linear.forward: expected a multi-dimensional input with batch size(s) first, found shape {X.data.shape}"
             )
-
         if grad:
             return X @ self.weight.T + self.bias
         else:
@@ -181,7 +180,6 @@ class Sequential(Module):
         for module in self.modules:
             if issubclass(type(module), Stateless):
                 continue
-
             for val in vars(module).values():
                 if isinstance(val, Tensor):
                     params.append(val)
@@ -193,7 +191,6 @@ class Sequential(Module):
         for i, module in enumerate(self.modules):
             if issubclass(type(module), Stateless):
                 continue
-
             for key, val in vars(module).items():
                 if isinstance(val, Tensor):
                     state[f"{i}.{key}"] = torch.from_numpy(val.data)
