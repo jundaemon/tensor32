@@ -51,8 +51,6 @@ if __name__ == "__main__":
 
 And here is an [example](https://github.com/jundaemon/tensor32/blob/main/src/tensor32/example_inference.py) to run inference on the same model trained.
 ```python
-import numpy as np
-
 from tensor32 import Container, load
 from tensor32.module import Linear, ReLU, Sequential
 
