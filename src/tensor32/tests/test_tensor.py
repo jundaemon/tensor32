@@ -88,6 +88,55 @@ def test_matmul(shape_a: tuple[int, ...], shape_b: tuple[int, ...]) -> None:
     helper_verify_binary_op(shape_a, shape_b, lambda a, b: a @ b)
 
 
+def test_neg() -> None:
+    rng = np.random.default_rng()
+    np_a = rng.standard_normal((3, 4), dtype=np.float32)
+
+    t_a = Tensor(np_a)
+    t_out = -t_a
+    t_out.backward()
+
+    pt_a = torch.tensor(np_a, requires_grad=True)
+    pt_out = -pt_a
+    pt_out.backward(torch.ones_like(pt_out))
+
+    assert_allclose(t_out.data, pt_out.detach().numpy(), rtol=RTOL, atol=ATOL)
+    assert_allclose(t_a.grad, pt_a.grad.numpy(), rtol=RTOL, atol=ATOL)  # type: ignore
+
+
+def test_abs() -> None:
+    rng = np.random.default_rng()
+    np_a = rng.standard_normal((3, 4), dtype=np.float32)
+
+    t_a = Tensor(np_a)
+    t_out = t_a.abs()
+    t_out.backward()
+
+    pt_a = torch.tensor(np_a, requires_grad=True)
+    pt_out = pt_a.abs()
+    pt_out.backward(torch.ones_like(pt_out))
+
+    assert_allclose(t_out.data, pt_out.detach().numpy(), rtol=RTOL, atol=ATOL)
+    assert_allclose(t_a.grad, pt_a.grad.numpy(), rtol=RTOL, atol=ATOL)  # type: ignore
+
+
+def test_log() -> None:
+    rng = np.random.default_rng()
+    np_a = rng.standard_normal((3, 4), dtype=np.float32)
+    np_a = np.abs(np_a) + 0.1
+
+    t_a = Tensor(np_a)
+    t_out = t_a.log()
+    t_out.backward()
+
+    pt_a = torch.tensor(np_a, requires_grad=True)
+    pt_out = pt_a.log()
+    pt_out.backward(torch.ones_like(pt_out))
+
+    assert_allclose(t_out.data, pt_out.detach().numpy(), rtol=RTOL, atol=ATOL)
+    assert_allclose(t_a.grad, pt_a.grad.numpy(), rtol=RTOL, atol=ATOL)  # type: ignore
+
+
 def test_T() -> None:
     rng = np.random.default_rng()
     np_a = rng.standard_normal((3, 4), dtype=np.float32)

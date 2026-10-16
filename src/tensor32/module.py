@@ -128,7 +128,6 @@ class Sigmoid(Module):
                 )
             return z.sigmoid()
         else:
-            # numerically stable sigmoid, prevents division by inf and overflow
             return Container(
                 data=np.where(
                     z.data >= 0,
@@ -197,6 +196,24 @@ class Sequential(Module):
 
         return state
 
+    def load_state_dict(self, state_dict: OrderedDict[str, torch.Tensor]) -> None:
+        tensors = self.parameters()
+        if len(tensors) != len(state_dict):
+            raise ArgumentError(
+                f"Sequential.load_state_dict: initialized state is incompatible with given state, expected {len(tensors)} tensors, found {len(state_dict)}"
+            )
+
+        for initialized, given in zip(tensors, state_dict.values()):
+            if initialized.data.shape != given.shape:
+                raise ArgumentError(
+                    f"Sequential.load_state_dict: initialized tensor is incompatible with given tensor, expected shape {initialized.data.shape}, found {given.shape}"
+                )
+            if given.dtype != torch.float32:
+                raise ArgumentError(
+                    f"Sequential.load_state_dict: only supporting 32 bit float types, found {given.dtype}"
+                )
+            initialized.data = given.numpy().astype(np.float32)
+
 
 class Loss(Module): ...
 
@@ -220,9 +237,52 @@ class MSELoss(Loss):
                 raise ArgumentError(
                     f"MSELoss.forward: expected a tensor under gradient tracking context, found {type(yc).__name__} and {type(y).__name__}"
                 )
-            return ((yc - y) ** 2).mean()  # type: ignore
+            return ((yc - y) ** 2).mean()
         else:
-            return Container(data=float(((yc.data - y.data) ** 2).mean()))
+            return Container(data=((yc.data - y.data) ** 2).mean())
+
+    @overload
+    def __call__(
+        self, yc: Container | Tensor, y: Container | Tensor, grad: Literal[True] = True
+    ) -> Tensor: ...
+    @overload
+    def __call__(
+        self, yc: Container | Tensor, y: Container | Tensor, grad: Literal[False]
+    ) -> Container: ...
+    @override
+    def __call__(
+        self, yc: Container | Tensor, y: Container | Tensor, grad: bool = True
+    ) -> Container | Tensor:
+        return self.forward(yc, y, grad)
+
+
+class BCEWithLogitsLoss(Loss):
+    @overload
+    def forward(
+        self, yc: Container | Tensor, y: Container | Tensor, grad: Literal[True] = True
+    ) -> Tensor: ...
+    @overload
+    def forward(
+        self, yc: Container | Tensor, y: Container | Tensor, grad: Literal[False]
+    ) -> Container: ...
+    @override
+    def forward(
+        self, yc: Container | Tensor, y: Container | Tensor, grad: bool = True
+    ) -> Container | Tensor:
+        if grad:
+            if not isinstance(yc, Tensor) and not isinstance(y, Tensor):
+                raise ArgumentError(
+                    f"BCEWithLogitsLoss.forward: expected a tensor under gradient tracking context, found {type(yc).__name__} and {type(y).__name__}"
+                )
+            return (yc.relu() - yc * y + (1 + np.e ** -yc.abs()).log()).mean()
+        else:
+            return Container(
+                data=(
+                    np.maximum(yc.data, 0, dtype=np.float32)
+                    - yc.data * y.data
+                    + np.log(1 + np.e ** -np.abs(yc.data))
+                ).mean()
+            )
 
     @overload
     def __call__(
