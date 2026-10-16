@@ -21,7 +21,7 @@ if __name__ == "__main__":
         Linear(4, 1),
     )
     loss_fn = BCEWithLogitsLoss()
-    optimizer = SGD(model.parameters(), lr=0.01)
+    optimizer = SGD(model.parameters(), lr=0.01, momentum=0.9)
     epochs = 30_000
 
     for epoch in range(epochs):

@@ -10,7 +10,7 @@ tensor32 is an autograd engine built on top of floating 32 bit numpy arrays, wri
 This is a hobby project and should not be used in production.
 
 ## Examples
-Here is an [example](https://github.com/jundaemon/tensor32/blob/main/src/tensor32/example_training.py) of training a small Multi Layer Perceptron (MLP) to solve the XOR problem.
+Here is an [example](https://github.com/jundaemon/tensor32/blob/main/src/example_training.py) of training a small Multi Layer Perceptron (MLP) to solve the XOR problem.
 ```python
 from tensor32 import Container, save
 from tensor32.module import BCEWithLogitsLoss, Linear, ReLU, Sequential
@@ -35,7 +35,7 @@ if __name__ == "__main__":
         Linear(4, 1),
     )
     loss_fn = BCEWithLogitsLoss()
-    optimizer = SGD(model.parameters(), lr=0.01)
+    optimizer = SGD(model.parameters(), lr=0.01, momentum=0.9)
     epochs = 30_000
 
     for epoch in range(epochs):
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     save(model.state_dict(), "assets/model.pth")
 ```
 
-And here is an [example](https://github.com/jundaemon/tensor32/blob/main/src/tensor32/example_inference.py) to run inference on the same model trained.
+And here is an [example](https://github.com/jundaemon/tensor32/blob/main/src/example_inference.py) to run inference on the same model trained.
 ```python
 from tensor32 import Container, load
 from tensor32.module import Linear, ReLU, Sequential
