@@ -177,7 +177,7 @@ class Container:
                 self.data >= 0,
                 1 / (1 + np.exp(-self.data)),
                 np.exp(self.data) / (1 + np.exp(self.data)),
-            ),
+            )
         )
 
     def mean(self) -> Container:
