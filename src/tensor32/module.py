@@ -78,7 +78,7 @@ class ReLU(Module):
                 )
             return z.relu()
         else:
-            return Container(data=np.maximum(0, z.data, dtype=np.float32))
+            return Container(data=np.maximum(0, z.data))
 
     @overload
     def __call__(self, z: Tensor, grad: Literal[True] = True) -> Tensor: ...
@@ -103,7 +103,7 @@ class Tanh(Module):
                 )
             return z.tanh()
         else:
-            return Container(data=np.tanh(z.data, dtype=np.float32))
+            return Container(data=np.tanh(z.data))
 
     @overload
     def __call__(self, z: Tensor, grad: Literal[True] = True) -> Tensor: ...
@@ -133,7 +133,7 @@ class Sigmoid(Module):
                     z.data >= 0,
                     1 / (1 + np.exp(-z.data)),
                     np.exp(z.data) / (1 + np.exp(z.data)),
-                ).astype(np.float32)
+                )
             )
 
     @overload
@@ -212,7 +212,7 @@ class Sequential(Module):
                 raise ArgumentError(
                     f"Sequential.load_state_dict: only supporting 32 bit float types, found {given.dtype}"
                 )
-            initialized.data = given.numpy().astype(np.float32)
+            initialized.data = given.numpy()
 
 
 class Loss(Module): ...
@@ -278,7 +278,7 @@ class BCEWithLogitsLoss(Loss):
         else:
             return Container(
                 data=(
-                    np.maximum(yc.data, 0, dtype=np.float32)
+                    np.maximum(yc.data, 0)
                     - yc.data * y.data
                     + np.log(1 + np.e ** -np.abs(yc.data))
                 ).mean()

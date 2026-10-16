@@ -65,7 +65,7 @@ class SGDwM(SGD):
         self.momentum = momentum
         self.velocities = []
         for tensor in params:
-            self.velocities.append(np.zeros_like(tensor.data, dtype=np.float32))
+            self.velocities.append(np.zeros_like(tensor.data))
 
     @override
     def step(self) -> None:

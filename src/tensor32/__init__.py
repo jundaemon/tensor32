@@ -125,13 +125,13 @@ class Container:
         return Container(data=base**self.data)
 
     def abs(self) -> Container:
-        return Container(data=np.abs(self.data, dtype=np.float32))
+        return Container(data=np.abs(self.data))
 
     def log(self) -> Container:
         if np.any(self.data <= 0):
             raise MathError("Container.log: -ve or 0 value(s) caught in argument")
 
-        return Container(data=np.log(self.data, dtype=np.float32))
+        return Container(data=np.log(self.data))
 
     @property
     def T(self) -> Container:
@@ -165,10 +165,10 @@ class Container:
         return Container(data=matrix_1.data @ self.data)
 
     def relu(self) -> Container:
-        return Container(data=np.maximum(0, self.data, dtype=np.float32))
+        return Container(data=np.maximum(0, self.data))
 
     def tanh(self) -> Container:
-        return Container(data=np.tanh(self.data, dtype=np.float32))
+        return Container(data=np.tanh(self.data))
 
     def sigmoid(self) -> Container:
         # numerically stable sigmoid, prevents division by inf and overflow
@@ -177,7 +177,7 @@ class Container:
                 self.data >= 0,
                 1 / (1 + np.exp(-self.data)),
                 np.exp(self.data) / (1 + np.exp(self.data)),
-            ).astype(np.float32),
+            ),
         )
 
     def mean(self) -> Container:
@@ -195,7 +195,7 @@ class Tensor(Container):
         operation: Operation | None = None,
     ) -> None:
         super().__init__(data)
-        self.grad = np.zeros_like(data, dtype=np.float32)
+        self.grad = np.zeros_like(data)
         self.operands = operands
         self.operation = operation
 
@@ -307,7 +307,7 @@ class Tensor(Container):
     @override
     def abs(self) -> Tensor:
         return Tensor(
-            data=np.abs(self.data, dtype=np.float32),
+            data=np.abs(self.data),
             operands=(self,),
             operation=Operation.ABS,
         )
@@ -318,7 +318,7 @@ class Tensor(Container):
             raise MathError("Tensor.log: -ve or 0 value(s) caught in argument")
 
         return Tensor(
-            data=np.log(self.data, dtype=np.float32),
+            data=np.log(self.data),
             operands=(self,),
             operation=Operation.LOG,
         )
@@ -375,7 +375,7 @@ class Tensor(Container):
     @override
     def relu(self) -> Tensor:
         return Tensor(
-            data=np.maximum(0, self.data, dtype=np.float32),
+            data=np.maximum(0, self.data),
             operands=(self,),
             operation=Operation.RELU,
         )
@@ -383,7 +383,7 @@ class Tensor(Container):
     @override
     def tanh(self) -> Tensor:
         return Tensor(
-            data=np.tanh(self.data, dtype=np.float32),
+            data=np.tanh(self.data),
             operands=(self,),
             operation=Operation.TANH,
         )
@@ -395,7 +395,7 @@ class Tensor(Container):
                 self.data >= 0,
                 1 / (1 + np.exp(-self.data)),
                 np.exp(self.data) / (1 + np.exp(self.data)),
-            ).astype(np.float32),
+            ),
             operands=(self,),
             operation=Operation.SIGMOID,
         )
@@ -403,7 +403,7 @@ class Tensor(Container):
     @override
     def mean(self) -> Tensor:
         return Tensor(
-            data=float(np.mean(self.data)), operands=(self,), operation=Operation.MEAN
+            data=np.mean(self.data), operands=(self,), operation=Operation.MEAN
         )
 
     # non-recursive topological sort
@@ -428,7 +428,7 @@ class Tensor(Container):
 
     def backward(self) -> None:
         ordered = self.__topo_sort()
-        self.grad = np.ones_like(self.data, dtype=np.float32)
+        self.grad = np.ones_like(self.data)
         for elem in reversed(ordered):
             if not isinstance(elem, Tensor) or not elem.operation:
                 continue
@@ -484,7 +484,7 @@ class Tensor(Container):
                 case Operation.ABS:
                     assert isinstance((op := elem.operands[0]), Tensor)
                     # the derivative of abs(x) does not exist at x = 0, so assigning the derivative then to 0
-                    op.grad += elem.grad * np.sign(op.data, dtype=np.float32)
+                    op.grad += elem.grad * np.sign(op.data)
                 case Operation.LOG:
                     assert isinstance((op := elem.operands[0]), Tensor)
                     op.grad += elem.grad * 1 / op.data
