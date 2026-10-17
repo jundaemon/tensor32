@@ -1,6 +1,6 @@
 from tensor32 import Container, save
 from tensor32.module import BCEWithLogitsLoss, Linear, ReLU, Sequential
-from tensor32.optimizer import SGD
+from tensor32.optimizer import Adam
 
 if __name__ == "__main__":
     X = [
@@ -16,12 +16,12 @@ if __name__ == "__main__":
         Container([[0]]),
     ]
     model = Sequential(
-        Linear(2, 4),
+        Linear(2, 2),
         ReLU(),
-        Linear(4, 1),
+        Linear(2, 1),
     )
     loss_fn = BCEWithLogitsLoss()
-    optimizer = SGD(model.parameters(), lr=0.01, momentum=0.9)
+    optimizer = Adam(model.parameters())
     epochs = 30_000
 
     for epoch in range(epochs):

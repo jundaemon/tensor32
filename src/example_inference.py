@@ -15,9 +15,9 @@ if __name__ == "__main__":
         Container([[0]]),
     ]
     model = Sequential(
-        Linear(2, 4),
+        Linear(2, 2),
         ReLU(),
-        Linear(4, 1),
+        Linear(2, 1),
     )
     model.load_state_dict(load("assets/model.pth"))
 

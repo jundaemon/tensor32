@@ -3,8 +3,8 @@ tensor32 is an autograd engine built on top of floating 32 bit numpy arrays, wri
 - Pytorch like API
 - Linear layers
 - Activation functions (ReLU, Sigmoid, Tanh)
-- Loss functions (MSE, BCE with Logits)
-- Optimizers (SGD, SGD with Momentum)
+- Loss functions (MSE, BCEWithLogits)
+- Optimizers (SGD, SGDwM, RMSprop, Adam)
 
 ## Disclaimer
 This is a hobby project and should not be used in production.
@@ -14,7 +14,7 @@ Here is an [example](https://github.com/jundaemon/tensor32/blob/main/src/example
 ```python
 from tensor32 import Container, save
 from tensor32.module import BCEWithLogitsLoss, Linear, ReLU, Sequential
-from tensor32.optimizer import SGD
+from tensor32.optimizer import Adam
 
 if __name__ == "__main__":
     X = [
@@ -30,12 +30,12 @@ if __name__ == "__main__":
         Container([[0]]),
     ]
     model = Sequential(
-        Linear(2, 4),
+        Linear(2, 2),
         ReLU(),
-        Linear(4, 1),
+        Linear(2, 1),
     )
     loss_fn = BCEWithLogitsLoss()
-    optimizer = SGD(model.parameters(), lr=0.01, momentum=0.9)
+    optimizer = Adam(model.parameters())
     epochs = 30_000
 
     for epoch in range(epochs):
@@ -68,9 +68,9 @@ if __name__ == "__main__":
         Container([[0]]),
     ]
     model = Sequential(
-        Linear(2, 4),
+        Linear(2, 2),
         ReLU(),
-        Linear(4, 1),
+        Linear(2, 1),
     )
     model.load_state_dict(load("assets/model.pth"))
 
