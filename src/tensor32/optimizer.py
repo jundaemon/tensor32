@@ -73,3 +73,29 @@ class SGDwM(SGD):
             velocity *= self.momentum
             velocity += self.lr * tensor.grad
             tensor.data -= velocity
+
+
+class RMSProp(Optimizer):
+    def __init__(
+        self,
+        params: list[Tensor],
+        lr: float = 1e-2,
+        decay_rate: float = 0.99,
+        epsilon: float = 1e-8,
+    ) -> None:
+        super().__init__(params)
+        self.lr = lr
+        self.decay_rate = decay_rate
+        self.epsilon = epsilon
+        self.moving_averages = []
+        for tensor in params:
+            self.moving_averages.append(np.zeros_like(tensor.data))
+
+    @override
+    def step(self) -> None:
+        for tensor, moving_average in zip(self.params, self.moving_averages):
+            moving_average *= self.decay_rate
+            moving_average += (1 - self.decay_rate) * tensor.grad**2
+            tensor.data -= (
+                self.lr * tensor.grad / (np.sqrt(moving_average) + self.epsilon)
+            )
