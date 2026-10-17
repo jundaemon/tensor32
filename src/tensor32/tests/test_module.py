@@ -196,8 +196,10 @@ def test_linear_train(
     features = [
         rng.standard_normal((1, 2), dtype=np.float32),
         rng.standard_normal((1, 2), dtype=np.float32),
+        rng.standard_normal((1, 2), dtype=np.float32),
     ]
     labels = [
+        rng.standard_normal((1, 1), dtype=np.float32),
         rng.standard_normal((1, 1), dtype=np.float32),
         rng.standard_normal((1, 1), dtype=np.float32),
     ]
