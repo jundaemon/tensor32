@@ -52,7 +52,12 @@ class Linear(Module):
             # the choice of having gradients for inputs is up to the user
             return X @ self.weight.T + self.bias
         else:
-            return Container(data=X.data @ self.weight.data.T + self.bias.data)
+            # underlying numpy arrays are shared but not modified, there is little overhead in creating temporary containers
+            if isinstance(X, Tensor):
+                X = Container(data=X.data)
+            temp_weight = Container(data=self.weight.data)
+            temp_bias = Container(data=self.bias.data)
+            return X @ temp_weight.T + temp_bias
 
     @overload
     def __call__(self, X: Container | Tensor, grad: Literal[True] = True) -> Tensor: ...
@@ -78,7 +83,9 @@ class ReLU(Module):
                 )
             return z.relu()
         else:
-            return Container(data=np.maximum(0, z.data))
+            if isinstance(z, Tensor):
+                z = Container(data=z.data)
+            return z.relu()
 
     @overload
     def __call__(self, z: Tensor, grad: Literal[True] = True) -> Tensor: ...
@@ -103,7 +110,9 @@ class Tanh(Module):
                 )
             return z.tanh()
         else:
-            return Container(data=np.tanh(z.data))
+            if isinstance(z, Tensor):
+                z = Container(data=z.data)
+            return z.tanh()
 
     @overload
     def __call__(self, z: Tensor, grad: Literal[True] = True) -> Tensor: ...
@@ -128,13 +137,9 @@ class Sigmoid(Module):
                 )
             return z.sigmoid()
         else:
-            return Container(
-                data=np.where(
-                    z.data >= 0,
-                    1 / (1 + np.exp(-z.data)),
-                    np.exp(z.data) / (1 + np.exp(z.data)),
-                )
-            )
+            if isinstance(z, Tensor):
+                z = Container(data=z.data)
+            return z.sigmoid()
 
     @overload
     def __call__(self, z: Tensor, grad: Literal[True] = True) -> Tensor: ...
@@ -239,7 +244,11 @@ class MSELoss(Loss):
                 )
             return ((yc - y) ** 2).mean()
         else:
-            return Container(data=((yc.data - y.data) ** 2).mean())
+            if isinstance(yc, Tensor):
+                yc = Container(data=yc.data)
+            if isinstance(y, Tensor):
+                y = Container(data=y.data)
+            return ((yc - y) ** 2).mean()
 
     @overload
     def __call__(
@@ -276,13 +285,11 @@ class BCEWithLogitsLoss(Loss):
                 )
             return (yc.relu() - yc * y + (1 + np.e ** -yc.abs()).log()).mean()
         else:
-            return Container(
-                data=(
-                    np.maximum(yc.data, 0)
-                    - yc.data * y.data
-                    + np.log(1 + np.e ** -np.abs(yc.data))
-                ).mean()
-            )
+            if isinstance(yc, Tensor):
+                yc = Container(data=yc.data)
+            if isinstance(y, Tensor):
+                y = Container(data=y.data)
+            return (yc.relu() - yc * y + (1 + np.e ** -yc.abs()).log()).mean()
 
     @overload
     def __call__(

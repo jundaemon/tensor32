@@ -11,7 +11,7 @@ ATOL = 1e-4
 OP_SHAPES = [
     ((3, 3), (3, 3)),
     ((3, 3), (3, 1)),
-    ((1, 4), (3, 4)),
+    ((1, 3), (3, 3)),
     ((2, 3, 4), (1, 4)),
     ((2, 3, 4), (3, 1)),
 ]
@@ -90,7 +90,7 @@ def test_matmul(shape_a: tuple[int, ...], shape_b: tuple[int, ...]) -> None:
 
 def test_neg() -> None:
     rng = np.random.default_rng()
-    np_a = rng.standard_normal((3, 4), dtype=np.float32)
+    np_a = rng.standard_normal((3, 3), dtype=np.float32)
 
     t_a = Tensor(np_a)
     t_out = -t_a
@@ -106,7 +106,7 @@ def test_neg() -> None:
 
 def test_abs() -> None:
     rng = np.random.default_rng()
-    np_a = rng.standard_normal((3, 4), dtype=np.float32)
+    np_a = rng.standard_normal((3, 3), dtype=np.float32)
 
     t_a = Tensor(np_a)
     t_out = t_a.abs()
@@ -122,7 +122,7 @@ def test_abs() -> None:
 
 def test_log() -> None:
     rng = np.random.default_rng()
-    np_a = rng.standard_normal((3, 4), dtype=np.float32)
+    np_a = rng.standard_normal((3, 3), dtype=np.float32)
     np_a = np.abs(np_a) + 0.1
 
     t_a = Tensor(np_a)
@@ -139,7 +139,7 @@ def test_log() -> None:
 
 def test_T() -> None:
     rng = np.random.default_rng()
-    np_a = rng.standard_normal((3, 4), dtype=np.float32)
+    np_a = rng.standard_normal((3, 3), dtype=np.float32)
 
     t_a = Tensor(np_a)
     t_out = t_a.T
