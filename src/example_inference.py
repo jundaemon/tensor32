@@ -1,5 +1,5 @@
 from tensor32 import Container, load
-from tensor32.module import Linear, ReLU, Sequential
+from tensor32.module import Linear, Sequential, Tanh
 
 if __name__ == "__main__":
     X = [
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     ]
     model = Sequential(
         Linear(2, 4),
-        ReLU(),
+        Tanh(),
         Linear(4, 1),
     )
     model.load_state_dict(load("assets/model.pth"))

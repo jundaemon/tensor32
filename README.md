@@ -13,7 +13,7 @@ This is a hobby project and should not be used in production.
 Here is an [example](https://github.com/jundaemon/tensor32/blob/main/src/example_training.py) of training a small Multi Layer Perceptron (MLP) to solve the XOR problem.
 ```python
 from tensor32 import Container, save
-from tensor32.module import BCEWithLogitsLoss, Linear, ReLU, Sequential
+from tensor32.module import BCEWithLogitsLoss, Linear, Sequential, Tanh
 from tensor32.optimizer import Adam
 
 if __name__ == "__main__":
@@ -31,12 +31,12 @@ if __name__ == "__main__":
     ]
     model = Sequential(
         Linear(2, 4),
-        ReLU(),
+        Tanh(),
         Linear(4, 1),
     )
     loss_fn = BCEWithLogitsLoss()
     optimizer = Adam(model.parameters())
-    epochs = 50_000
+    epochs = 30_000
 
     for epoch in range(epochs):
         for feature, label in zip(X, y):
@@ -52,7 +52,7 @@ if __name__ == "__main__":
 And here is an [example](https://github.com/jundaemon/tensor32/blob/main/src/example_inference.py) to run inference on the same model trained.
 ```python
 from tensor32 import Container, load
-from tensor32.module import Linear, ReLU, Sequential
+from tensor32.module import Linear, Sequential, Tanh
 
 if __name__ == "__main__":
     X = [
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     ]
     model = Sequential(
         Linear(2, 4),
-        ReLU(),
+        Tanh(),
         Linear(4, 1),
     )
     model.load_state_dict(load("assets/model.pth"))

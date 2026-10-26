@@ -1,5 +1,5 @@
 from tensor32 import Container, save
-from tensor32.module import BCEWithLogitsLoss, Linear, ReLU, Sequential
+from tensor32.module import BCEWithLogitsLoss, Linear, Sequential, Tanh
 from tensor32.optimizer import Adam
 
 if __name__ == "__main__":
@@ -17,12 +17,12 @@ if __name__ == "__main__":
     ]
     model = Sequential(
         Linear(2, 4),
-        ReLU(),
+        Tanh(),
         Linear(4, 1),
     )
     loss_fn = BCEWithLogitsLoss()
     optimizer = Adam(model.parameters())
-    epochs = 50_000
+    epochs = 30_000
 
     for epoch in range(epochs):
         for feature, label in zip(X, y):
