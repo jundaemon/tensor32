@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Literal, overload, override
+from typing import override
 
 import numpy as np
 
@@ -20,32 +20,10 @@ class Optimizer:
 
 
 class SGD(Optimizer):
-    @overload
-    def __new__(
-        cls, params: list[Tensor], lr: float = 1e-3, momentum: Literal[0] = 0
-    ) -> SGD: ...
-    @overload
-    def __new__(
-        cls, params: list[Tensor], lr: float = 1e-3, momentum: float = 0
-    ) -> SGDwM: ...
-    def __new__(
-        cls, params: list[Tensor], lr: float = 1e-3, momentum: float = 0
-    ) -> SGD | SGDwM:
-        if cls is SGD and momentum > 0:
-            return super().__new__(SGDwM)
-
-        return super().__new__(cls)
-
-    def __init__(
-        self, params: list[Tensor], lr: float = 1e-3, momentum: float = 0
-    ) -> None:
+    def __init__(self, params: list[Tensor], lr: float = 1e-3) -> None:
         if lr <= 0:
             raise ArgumentError(
                 f"SGD.__init__: learning rate should be more than 0, found {lr}"
-            )
-        if momentum < 0:
-            raise ArgumentError(
-                f"SGD.__init__: momentum should be more than or equals to 0, found {momentum}"
             )
 
         super().__init__(params)
@@ -57,11 +35,12 @@ class SGD(Optimizer):
             tensor.data -= self.lr * tensor.grad
 
 
-class SGDwM(SGD):
+class SGDwM(Optimizer):
     def __init__(
-        self, params: list[Tensor], lr: float = 1e-3, momentum: float = 0
+        self, params: list[Tensor], lr: float = 1e-3, momentum: float = 0.9
     ) -> None:
-        super().__init__(params, lr, momentum)
+        super().__init__(params)
+        self.lr = lr
         self.momentum = momentum
         self.velocities = []
         for tensor in params:
