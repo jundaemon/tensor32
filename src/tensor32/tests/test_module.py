@@ -14,7 +14,7 @@ from tensor32.module import (
     Sigmoid,
     Tanh,
 )
-from tensor32.optimizer import SGD, Adam, Optimizer, RMSprop, SGDwM
+from tensor32.optimizer import SGD, SGDM, Adam, Optimizer, RMSprop
 
 
 def create_linear_relu() -> tuple[Sequential, nn.Sequential]:
@@ -103,7 +103,7 @@ LINEAR_TRAINING_SUITE = [
         (models_3 := create_linear_sigmoid()),
         BCEWithLogitsLoss(),
         nn.BCEWithLogitsLoss(),
-        SGDwM(models_3[0].parameters()),
+        SGDM(models_3[0].parameters()),
         optim.SGD(models_3[1].parameters(), momentum=0.9),
     ),
     (

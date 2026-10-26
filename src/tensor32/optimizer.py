@@ -21,7 +21,7 @@ class Optimizer:
 
 class SGD(Optimizer):
     def __init__(self, params: list[Tensor], lr: float = 1e-3) -> None:
-        if lr <= 0:
+        if lr < 0:
             raise ArgumentError(
                 f"SGD.__init__: learning rate should be more than 0, found {lr}"
             )
@@ -35,10 +35,19 @@ class SGD(Optimizer):
             tensor.data -= self.lr * tensor.grad
 
 
-class SGDwM(Optimizer):
+class SGDM(Optimizer):
     def __init__(
         self, params: list[Tensor], lr: float = 1e-3, momentum: float = 0.9
     ) -> None:
+        if lr <= 0:
+            raise ArgumentError(
+                f"SGD.__init__: learning rate should be more than 0, found {lr}"
+            )
+        if momentum <= 0:
+            raise ArgumentError(
+                f"SGDM.__init__: momentum should be more than 0, found {momentum}"
+            )
+
         super().__init__(params)
         self.lr = lr
         self.momentum = momentum
