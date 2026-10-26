@@ -4,7 +4,7 @@ tensor32 is an autograd engine built on top of floating 32 bit numpy arrays, wri
 - Linear layers
 - Activation functions (ReLU, Sigmoid, Tanh)
 - Loss functions (MSE, BCEWithLogits)
-- Optimizers (SGD, SGDwM, RMSprop, Adam)
+- Optimizers (SGD, SGDM, RMSprop, Adam)
 
 ## Disclaimer
 This is a hobby project and should not be used in production.
@@ -91,4 +91,4 @@ The backward pass in tensors is quite straight forward. The computational graph 
 Moving on to modules, they largely follow the implementation in Pytorch, except instead of a context manager like `no_grad()` in Pytorch, the choice of tracking gradients and building a computational graph is expressed through a boolean input argument to the forward pass of modules. This was a direct result of the container/tensor architecture. Type hints do not have access to the state of context managers, if I were to implement a context manager and type hint the return value of the `forward` method to be `Container | Tensor`, the Language Server Protocol (LSP) of the user would flag `backward` to not be implemented in the container class even though for certain, the output of `forward` would be a tensor under a gradient tracking context. Thus, using a boolean input argument to allow users to choose whether they want gradient tracking allows me to overload the `forward` and `__call__` methods and provide more precise type hints for each scenario.
 
 ### Optimizers
-Finally for the optimizers, they largely follow the implementation in Pytorch. One slight difference involves the separation of Stochastic Gradient Descent (SGD) and SGD with Momentum (SGDwM).
+Finally for the optimizers, they largely follow the implementation in Pytorch. One slight difference involves the separation of Stochastic Gradient Descent (SGD) and SGD with Momentum (SGDM).

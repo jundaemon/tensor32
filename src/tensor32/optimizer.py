@@ -23,7 +23,7 @@ class SGD(Optimizer):
     def __init__(self, params: list[Tensor], lr: float = 1e-3) -> None:
         if lr < 0:
             raise ArgumentError(
-                f"SGD.__init__: learning rate should be more than 0, found {lr}"
+                f"SGD.__init__: learning rate should be more than or equals to 0, found {lr}"
             )
 
         super().__init__(params)
@@ -39,13 +39,13 @@ class SGDM(Optimizer):
     def __init__(
         self, params: list[Tensor], lr: float = 1e-3, momentum: float = 0.9
     ) -> None:
-        if lr <= 0:
+        if lr < 0:
             raise ArgumentError(
-                f"SGD.__init__: learning rate should be more than 0, found {lr}"
+                f"SGD.__init__: learning rate should be more than or equals to 0, found {lr}"
             )
-        if momentum <= 0:
+        if momentum < 0:
             raise ArgumentError(
-                f"SGDM.__init__: momentum should be more than 0, found {momentum}"
+                f"SGDM.__init__: momentum should be more than or equals to 0, found {momentum}"
             )
 
         super().__init__(params)
@@ -71,13 +71,13 @@ class RMSprop(Optimizer):
         alpha: float = 0.99,
         eps: float = 1e-8,
     ) -> None:
-        if lr <= 0:
+        if lr < 0:
             raise ArgumentError(
-                f"RMSprop.__init__: learning rate should be more than 0, found {lr}"
+                f"RMSprop.__init__: learning rate should be more than or equals to 0, found {lr}"
             )
-        if alpha <= 0:
+        if alpha < 0:
             raise ArgumentError(
-                f"RMSprop.__init__: alpha should be more than 0, found {alpha}"
+                f"RMSprop.__init__: alpha should be more than or equals to 0, found {alpha}"
             )
         if eps <= 0:
             raise ArgumentError(
@@ -108,9 +108,9 @@ class Adam(Optimizer):
         betas: tuple[float, float] = (0.9, 0.999),
         eps: float = 1e-8,
     ) -> None:
-        if lr <= 0:
+        if lr < 0:
             raise ArgumentError(
-                f"Adam.__init__: learning rate should be more than 0, found {lr}"
+                f"Adam.__init__: learning rate should be more than or equals to 0, found {lr}"
             )
         if not 0 <= betas[0] < 1 or not 0 <= betas[1] < 1:
             raise ArgumentError(
