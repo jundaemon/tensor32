@@ -196,7 +196,7 @@ class Sequential(Module):
         state = OrderedDict()
         for i, module in enumerate(self.modules):
             for key, val in vars(module).items():
-                if isinstance(val, Tensor) or isinstance(val, Container):
+                if isinstance(val, (Container, Tensor)):
                     state[f"{i}.{key}"] = torch.from_numpy(val.data)
 
         return state

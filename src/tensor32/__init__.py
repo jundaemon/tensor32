@@ -1,4 +1,3 @@
-from abc import abstractmethod
 from collections import OrderedDict
 from enum import Enum, auto
 from typing import override
@@ -323,7 +322,6 @@ class Tensor(Container):
             operation=Operation.LOG,
         )
 
-    @override
     @property
     def T(self) -> Tensor:
         return Tensor(
@@ -332,7 +330,6 @@ class Tensor(Container):
             operation=Operation.T,
         )
 
-    @override
     @property
     def mT(self) -> Tensor:
         if len(self.data.shape) < 2:
@@ -418,7 +415,7 @@ class Tensor(Container):
                 visited.add(top)
                 if isinstance(top, Tensor) and top.operands:
                     for operand in top.operands:
-                        stack.append(operand)  # type: ignore
+                        stack.append(operand)  # type: ignore # noqa
             else:
                 top = stack.pop()
                 if top not in ordered:
@@ -443,7 +440,8 @@ class Tensor(Container):
                     if isinstance(op_2, Tensor):
                         op_2.grad += unbroadcast(elem.grad, op_2.grad.shape)
                 case Operation.NEG:
-                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op = elem.operands[0]
+                    assert isinstance(op, Tensor)
                     op.grad -= elem.grad
                 case Operation.SUB:
                     op_1, op_2 = elem.operands
@@ -482,17 +480,21 @@ class Tensor(Container):
                             op_2.grad.shape,
                         )
                 case Operation.ABS:
-                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op = elem.operands[0]
+                    assert isinstance(op, Tensor)
                     # the derivative of abs(x) does not exist at x = 0, so assigning the derivative then to 0
                     op.grad += elem.grad * np.sign(op.data)
                 case Operation.LOG:
-                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op = elem.operands[0]
+                    assert isinstance(op, Tensor)
                     op.grad += elem.grad * 1 / op.data
                 case Operation.T:
-                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op = elem.operands[0]
+                    assert isinstance(op, Tensor)
                     op.grad += elem.grad.T
                 case Operation.MT:
-                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op = elem.operands[0]
+                    assert isinstance(op, Tensor)
                     op.grad += np.swapaxes(elem.grad, -1, -2)
                 case Operation.MATMUL:
                     op_1, op_2 = elem.operands
@@ -506,14 +508,18 @@ class Tensor(Container):
                             np.swapaxes(op_1.data, -1, -2) @ elem.grad, op_2.grad.shape
                         )
                 case Operation.RELU:
-                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op = elem.operands[0]
+                    assert isinstance(op, Tensor)
                     op.grad += elem.grad * (op.data > 0).astype(np.float32)
                 case Operation.TANH:
-                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op = elem.operands[0]
+                    assert isinstance(op, Tensor)
                     op.grad += elem.grad * (1 - elem.data**2)
                 case Operation.SIGMOID:
-                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op = elem.operands[0]
+                    assert isinstance(op, Tensor)
                     op.grad += elem.grad * elem.data * (1 - elem.data)
                 case Operation.MEAN:
-                    assert isinstance((op := elem.operands[0]), Tensor)
+                    op = elem.operands[0]
+                    assert isinstance(op, Tensor)
                     op.grad += elem.grad / op.data.size
