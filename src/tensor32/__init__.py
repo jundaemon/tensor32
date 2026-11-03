@@ -1,5 +1,6 @@
+# type: ignore
 from collections import OrderedDict
-from enum import Enum, auto
+from enum import IntEnum, auto
 from typing import override
 
 import numpy as np
@@ -18,7 +19,131 @@ def load(path: str) -> OrderedDict[str, torch.Tensor]:
     return torch.load(path)
 
 
-class Operation(Enum):
+# if broadcasting was done to satisfy an operation,
+# the gradients have to be accumulated across relevant axis during the backward pass
+def _unbroadcast(
+    grad: NDArray[np.float32], init_shape: tuple[int, ...]
+) -> NDArray[np.float32]:
+    if grad.shape == init_shape:
+        return grad
+
+    # sum across the outer most dimension for the number dimensions added
+    for _ in range(len(grad.shape) - len(init_shape)):
+        grad = grad.sum(axis=0)
+
+    # in the inner dimensions, broadcasting only happened if the shape is 1
+    for i, dim in enumerate(init_shape):
+        if dim == 1:
+            grad = grad.sum(axis=i, keepdims=True)
+
+    return grad
+
+
+def _b_add(elem: Tensor) -> None:
+    op_1, op_2 = elem.operands
+    if isinstance(op_1, Tensor):
+        op_1.grad += _unbroadcast(elem.grad, op_1.grad.shape)
+    if isinstance(op_2, Tensor):
+        op_2.grad += _unbroadcast(elem.grad, op_2.grad.shape)
+
+
+def _b_neg(elem: Tensor) -> None:
+    elem.operands[0].grad -= elem.grad
+
+
+def _b_sub(elem: Tensor) -> None:
+    op_1, op_2 = elem.operands
+    if isinstance(op_1, Tensor):
+        op_1.grad += _unbroadcast(elem.grad, op_1.grad.shape)
+    if isinstance(op_2, Tensor):
+        op_2.grad += _unbroadcast(-elem.grad, op_2.grad.shape)
+
+
+def _b_mul(elem: Tensor) -> None:
+    op_1, op_2 = elem.operands
+    if isinstance(op_1, Tensor):
+        op_1.grad += _unbroadcast(elem.grad * op_2.data, op_1.grad.shape)
+    if isinstance(op_2, Tensor):
+        op_2.grad += _unbroadcast(elem.grad * op_1.data, op_2.grad.shape)
+
+
+def _b_div(elem: Tensor) -> None:
+    op_1, op_2 = elem.operands
+    if isinstance(op_1, Tensor):
+        op_1.grad += _unbroadcast(elem.grad / op_2.data, op_1.grad.shape)
+    if isinstance(op_2, Tensor):
+        op_2.grad += _unbroadcast(
+            elem.grad * -op_1.data / op_2.data**2, op_2.grad.shape
+        )
+
+
+def _b_pow(elem: Tensor) -> None:
+    op_1, op_2 = elem.operands
+    if isinstance(op_1, Tensor):
+        op_1.grad += _unbroadcast(
+            elem.grad * op_2.data * op_1.data ** (op_2.data - 1),
+            op_1.grad.shape,
+        )
+    if isinstance(op_2, Tensor):
+        if np.any(op_1.data <= 0):
+            raise MathError("Tensor.backward: -ve or 0 value(s) caught in base")
+        op_2.grad += _unbroadcast(
+            elem.grad * np.log(op_1.data) * op_1.data**op_2.data,
+            op_2.grad.shape,
+        )
+
+
+def _b_abs(elem: Tensor) -> None:
+    op = elem.operands[0]
+    # the derivative of abs(x) does not exist at x = 0, so assigning the derivative then to 0
+    op.grad += elem.grad * np.sign(op.data)
+
+
+def _b_log(elem: Tensor) -> None:
+    op = elem.operands[0]
+    op.grad += elem.grad * 1 / op.data
+
+
+def _b_T(elem: Tensor) -> None:
+    elem.operands[0].grad += elem.grad.T
+
+
+def _b_mT(elem: Tensor) -> None:
+    elem.operands[0].grad += np.swapaxes(elem.grad, -1, -2)
+
+
+def _b_matmul(elem: Tensor) -> None:
+    op_1, op_2 = elem.operands
+    # using swapaxes prevents messing up batch dimensions if any
+    if isinstance(op_1, Tensor):
+        op_1.grad += _unbroadcast(
+            elem.grad @ np.swapaxes(op_2.data, -1, -2), op_1.grad.shape
+        )
+    if isinstance(op_2, Tensor):
+        op_2.grad += _unbroadcast(
+            np.swapaxes(op_1.data, -1, -2) @ elem.grad, op_2.grad.shape
+        )
+
+
+def _b_relu(elem: Tensor) -> None:
+    op = elem.operands[0]
+    op.grad += elem.grad * (op.data > 0).astype(np.float32)
+
+
+def _b_tanh(elem: Tensor) -> None:
+    elem.operands[0].grad += elem.grad * (1 - elem.data**2)
+
+
+def _b_sigmoid(elem: Tensor) -> None:
+    elem.operands[0].grad += elem.grad * elem.data * (1 - elem.data)
+
+
+def _b_mean(elem: Tensor) -> None:
+    op = elem.operands[0]
+    op.grad += elem.grad / op.data.size
+
+
+class Operation(IntEnum):
     ADD = auto()
     NEG = auto()
     SUB = auto()
@@ -36,24 +161,23 @@ class Operation(Enum):
     MEAN = auto()
 
 
-# if broadcasting was done to satisfy an operation,
-# the gradients have to be accumulated across relevant axis during the backward pass
-def unbroadcast(
-    grad: NDArray[np.float32], init_shape: tuple[int, ...]
-) -> NDArray[np.float32]:
-    if grad.shape == init_shape:
-        return grad
-
-    # sum across the outer most dimension for the number dimensions added
-    for _ in range(len(grad.shape) - len(init_shape)):
-        grad = grad.sum(axis=0)
-
-    # in the inner dimensions, broadcasting only happened if the shape is 1
-    for i, dim in enumerate(init_shape):
-        if dim == 1:
-            grad = grad.sum(axis=i, keepdims=True)
-
-    return grad
+_JUMP_TABLE = {
+    Operation.ADD: _b_add,
+    Operation.NEG: _b_neg,
+    Operation.SUB: _b_sub,
+    Operation.MUL: _b_mul,
+    Operation.DIV: _b_div,
+    Operation.POW: _b_pow,
+    Operation.ABS: _b_abs,
+    Operation.LOG: _b_log,
+    Operation.T: _b_T,
+    Operation.MT: _b_mT,
+    Operation.MATMUL: _b_matmul,
+    Operation.RELU: _b_relu,
+    Operation.TANH: _b_tanh,
+    Operation.SIGMOID: _b_sigmoid,
+    Operation.MEAN: _b_mean,
+}
 
 
 # a data class for constants that do not require gradient tracking
@@ -427,99 +551,7 @@ class Tensor(Container):
         ordered = self.__topo_sort()
         self.grad = np.ones_like(self.data)
         for elem in reversed(ordered):
-            if not isinstance(elem, Tensor) or not elem.operation:
+            if not isinstance(elem, Tensor) or elem.operation is None:
                 continue
-            assert elem.operands  # assertions for lsp only
 
-            # chain rule
-            match elem.operation:
-                case Operation.ADD:
-                    op_1, op_2 = elem.operands
-                    if isinstance(op_1, Tensor):
-                        op_1.grad += unbroadcast(elem.grad, op_1.grad.shape)
-                    if isinstance(op_2, Tensor):
-                        op_2.grad += unbroadcast(elem.grad, op_2.grad.shape)
-                case Operation.NEG:
-                    op = elem.operands[0]
-                    assert isinstance(op, Tensor)
-                    op.grad -= elem.grad
-                case Operation.SUB:
-                    op_1, op_2 = elem.operands
-                    if isinstance(op_1, Tensor):
-                        op_1.grad += unbroadcast(elem.grad, op_1.grad.shape)
-                    if isinstance(op_2, Tensor):
-                        op_2.grad += unbroadcast(-elem.grad, op_2.grad.shape)
-                case Operation.MUL:
-                    op_1, op_2 = elem.operands
-                    if isinstance(op_1, Tensor):
-                        op_1.grad += unbroadcast(elem.grad * op_2.data, op_1.grad.shape)
-                    if isinstance(op_2, Tensor):
-                        op_2.grad += unbroadcast(elem.grad * op_1.data, op_2.grad.shape)
-                case Operation.DIV:
-                    op_1, op_2 = elem.operands
-                    if isinstance(op_1, Tensor):
-                        op_1.grad += unbroadcast(elem.grad / op_2.data, op_1.grad.shape)
-                    if isinstance(op_2, Tensor):
-                        op_2.grad += unbroadcast(
-                            elem.grad * -op_1.data / op_2.data**2, op_2.grad.shape
-                        )
-                case Operation.POW:
-                    op_1, op_2 = elem.operands
-                    if isinstance(op_1, Tensor):
-                        op_1.grad += unbroadcast(
-                            elem.grad * op_2.data * op_1.data ** (op_2.data - 1),
-                            op_1.grad.shape,
-                        )
-                    if isinstance(op_2, Tensor):
-                        if np.any(op_1.data <= 0):
-                            raise MathError(
-                                "Tensor.backward: -ve or 0 value(s) caught in base"
-                            )
-                        op_2.grad += unbroadcast(
-                            elem.grad * np.log(op_1.data) * op_1.data**op_2.data,
-                            op_2.grad.shape,
-                        )
-                case Operation.ABS:
-                    op = elem.operands[0]
-                    assert isinstance(op, Tensor)
-                    # the derivative of abs(x) does not exist at x = 0, so assigning the derivative then to 0
-                    op.grad += elem.grad * np.sign(op.data)
-                case Operation.LOG:
-                    op = elem.operands[0]
-                    assert isinstance(op, Tensor)
-                    op.grad += elem.grad * 1 / op.data
-                case Operation.T:
-                    op = elem.operands[0]
-                    assert isinstance(op, Tensor)
-                    op.grad += elem.grad.T
-                case Operation.MT:
-                    op = elem.operands[0]
-                    assert isinstance(op, Tensor)
-                    op.grad += np.swapaxes(elem.grad, -1, -2)
-                case Operation.MATMUL:
-                    op_1, op_2 = elem.operands
-                    # using swapaxes prevents messing up batch dimensions if any
-                    if isinstance(op_1, Tensor):
-                        op_1.grad += unbroadcast(
-                            elem.grad @ np.swapaxes(op_2.data, -1, -2), op_1.grad.shape
-                        )
-                    if isinstance(op_2, Tensor):
-                        op_2.grad += unbroadcast(
-                            np.swapaxes(op_1.data, -1, -2) @ elem.grad, op_2.grad.shape
-                        )
-                case Operation.RELU:
-                    op = elem.operands[0]
-                    assert isinstance(op, Tensor)
-                    op.grad += elem.grad * (op.data > 0).astype(np.float32)
-                case Operation.TANH:
-                    op = elem.operands[0]
-                    assert isinstance(op, Tensor)
-                    op.grad += elem.grad * (1 - elem.data**2)
-                case Operation.SIGMOID:
-                    op = elem.operands[0]
-                    assert isinstance(op, Tensor)
-                    op.grad += elem.grad * elem.data * (1 - elem.data)
-                case Operation.MEAN:
-                    op = elem.operands[0]
-                    assert isinstance(op, Tensor)
-                    op.grad += elem.grad / op.data.size
+            _JUMP_TABLE[elem.operation](elem)
