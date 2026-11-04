@@ -143,7 +143,7 @@ def _b_mean(elem: Tensor) -> None:
     op.grad += elem.grad / op.data.size
 
 
-class Operation(IntEnum):
+class _Operation(IntEnum):
     ADD = auto()
     NEG = auto()
     SUB = auto()
@@ -162,21 +162,21 @@ class Operation(IntEnum):
 
 
 _JUMP_TABLE = {
-    Operation.ADD: _b_add,
-    Operation.NEG: _b_neg,
-    Operation.SUB: _b_sub,
-    Operation.MUL: _b_mul,
-    Operation.DIV: _b_div,
-    Operation.POW: _b_pow,
-    Operation.ABS: _b_abs,
-    Operation.LOG: _b_log,
-    Operation.T: _b_T,
-    Operation.MT: _b_mT,
-    Operation.MATMUL: _b_matmul,
-    Operation.RELU: _b_relu,
-    Operation.TANH: _b_tanh,
-    Operation.SIGMOID: _b_sigmoid,
-    Operation.MEAN: _b_mean,
+    _Operation.ADD: _b_add,
+    _Operation.NEG: _b_neg,
+    _Operation.SUB: _b_sub,
+    _Operation.MUL: _b_mul,
+    _Operation.DIV: _b_div,
+    _Operation.POW: _b_pow,
+    _Operation.ABS: _b_abs,
+    _Operation.LOG: _b_log,
+    _Operation.T: _b_T,
+    _Operation.MT: _b_mT,
+    _Operation.MATMUL: _b_matmul,
+    _Operation.RELU: _b_relu,
+    _Operation.TANH: _b_tanh,
+    _Operation.SIGMOID: _b_sigmoid,
+    _Operation.MEAN: _b_mean,
 }
 
 
@@ -315,7 +315,7 @@ class Tensor(Container):
         self,
         data: ArrayLike,
         operands: tuple[Container | Tensor, ...] | None = None,
-        operation: Operation | None = None,
+        operation: _Operation | None = None,
     ) -> None:
         super().__init__(data)
         self.grad = np.zeros_like(data)
@@ -330,7 +330,7 @@ class Tensor(Container):
         return Tensor(
             data=self.data + operand_2.data,
             operands=(self, operand_2),
-            operation=Operation.ADD,
+            operation=_Operation.ADD,
         )
 
     @override
@@ -339,7 +339,7 @@ class Tensor(Container):
 
     @override
     def __neg__(self) -> Tensor:
-        return Tensor(data=-self.data, operands=(self,), operation=Operation.NEG)
+        return Tensor(data=-self.data, operands=(self,), operation=_Operation.NEG)
 
     @override
     def __sub__(self, operand_2: float | Container | Tensor) -> Tensor:
@@ -350,7 +350,7 @@ class Tensor(Container):
             data=self.data - operand_2.data,
             # order of operands only matter in -, /, ** and @
             operands=(self, operand_2),
-            operation=Operation.SUB,
+            operation=_Operation.SUB,
         )
 
     @override
@@ -361,7 +361,7 @@ class Tensor(Container):
         return Tensor(
             data=operand_1.data - self.data,
             operands=(operand_1, self),
-            operation=Operation.SUB,
+            operation=_Operation.SUB,
         )
 
     @override
@@ -372,7 +372,7 @@ class Tensor(Container):
         return Tensor(
             data=self.data * operand_2.data,
             operands=(self, operand_2),
-            operation=Operation.MUL,
+            operation=_Operation.MUL,
         )
 
     @override
@@ -389,7 +389,7 @@ class Tensor(Container):
         return Tensor(
             data=self.data / divisor.data,
             operands=(self, divisor),
-            operation=Operation.DIV,
+            operation=_Operation.DIV,
         )
 
     @override
@@ -402,7 +402,7 @@ class Tensor(Container):
         return Tensor(
             data=numerator.data / self.data,
             operands=(numerator, self),
-            operation=Operation.DIV,
+            operation=_Operation.DIV,
         )
 
     @override
@@ -413,7 +413,7 @@ class Tensor(Container):
         return Tensor(
             data=self.data**exponent.data,
             operands=(self, exponent),
-            operation=Operation.POW,
+            operation=_Operation.POW,
         )
 
     @override
@@ -424,7 +424,7 @@ class Tensor(Container):
         return Tensor(
             data=base.data**self.data,
             operands=(base, self),
-            operation=Operation.POW,
+            operation=_Operation.POW,
         )
 
     @override
@@ -432,7 +432,7 @@ class Tensor(Container):
         return Tensor(
             data=np.abs(self.data),
             operands=(self,),
-            operation=Operation.ABS,
+            operation=_Operation.ABS,
         )
 
     @override
@@ -443,7 +443,7 @@ class Tensor(Container):
         return Tensor(
             data=np.log(self.data),
             operands=(self,),
-            operation=Operation.LOG,
+            operation=_Operation.LOG,
         )
 
     @property
@@ -451,7 +451,7 @@ class Tensor(Container):
         return Tensor(
             data=self.data.T.copy(),
             operands=(self,),
-            operation=Operation.T,
+            operation=_Operation.T,
         )
 
     @property
@@ -464,7 +464,7 @@ class Tensor(Container):
         return Tensor(
             data=np.swapaxes(self.data, -1, -2).copy(),
             operands=(self,),
-            operation=Operation.MT,
+            operation=_Operation.MT,
         )
 
     @override
@@ -477,7 +477,7 @@ class Tensor(Container):
         return Tensor(
             data=self.data @ matrix_2.data,
             operands=(self, matrix_2),
-            operation=Operation.MATMUL,
+            operation=_Operation.MATMUL,
         )
 
     @override
@@ -490,7 +490,7 @@ class Tensor(Container):
         return Tensor(
             data=matrix_1.data @ self.data,
             operands=(matrix_1, self),
-            operation=Operation.MATMUL,
+            operation=_Operation.MATMUL,
         )
 
     @override
@@ -498,7 +498,7 @@ class Tensor(Container):
         return Tensor(
             data=np.maximum(0, self.data),
             operands=(self,),
-            operation=Operation.RELU,
+            operation=_Operation.RELU,
         )
 
     @override
@@ -506,7 +506,7 @@ class Tensor(Container):
         return Tensor(
             data=np.tanh(self.data),
             operands=(self,),
-            operation=Operation.TANH,
+            operation=_Operation.TANH,
         )
 
     @override
@@ -518,13 +518,13 @@ class Tensor(Container):
                 np.exp(self.data) / (1 + np.exp(self.data)),
             ),
             operands=(self,),
-            operation=Operation.SIGMOID,
+            operation=_Operation.SIGMOID,
         )
 
     @override
     def mean(self) -> Tensor:
         return Tensor(
-            data=np.mean(self.data), operands=(self,), operation=Operation.MEAN
+            data=np.mean(self.data), operands=(self,), operation=_Operation.MEAN
         )
 
     # non-recursive topological sort
